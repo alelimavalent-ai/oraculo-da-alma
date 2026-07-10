@@ -1,0 +1,101 @@
+generator client {
+  provider      = "prisma-client-js"
+  binaryTargets = ["native", "debian-openssl-3.0.x"]
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Responsavel {
+  id        Int      @id @default(autoincrement())
+  nome      String
+  email     String   @unique
+  senhaHash String
+  papel     String   @default("responsavel") // responsavel | aluno
+  alunoId   Int?     // se for aluno, aponta para o registro do aluno
+  criadoEm  DateTime @default(now())
+}
+
+model Aluno {
+  id           Int           @id @default(autoincrement())
+  nome         String
+  apelido      String?
+  idade        Int
+  telefone     String?
+  escola       String        @default("Colégio Elite RJ — Norte Shopping")
+  turma        String?
+  matricula    String?
+  frequencia   String?
+  criadoEm     DateTime      @default(now())
+  mensagens    Mensagem[]
+  notas        Nota[]
+  materiais    Material[]
+  dificuldades Dificuldade[]
+  alertas      Alerta[]
+}
+
+model Materia {
+  id   Int    @id @default(autoincrement())
+  nome String @unique
+}
+
+model Material {
+  id        Int      @id @default(autoincrement())
+  alunoId   Int?
+  aluno     Aluno?   @relation(fields: [alunoId], references: [id])
+  materia   String?
+  tipo      String   // LIVRO | APOSTILA | BOLETIM | PROVA | FOTO | OUTRO
+  titulo    String
+  arquivo   String?  // caminho do arquivo em /app/uploads
+  mime      String?
+  criadoEm  DateTime @default(now())
+}
+
+model Nota {
+  id       Int      @id @default(autoincrement())
+  alunoId  Int
+  aluno    Aluno    @relation(fields: [alunoId], references: [id])
+  materia  String
+  bimestre Int
+  ano      Int
+  nota     Float
+  criadoEm DateTime @default(now())
+}
+
+model Mensagem {
+  id         Int      @id @default(autoincrement())
+  alunoId    Int
+  aluno      Aluno    @relation(fields: [alunoId], references: [id])
+  papel      String   // aluno | alessandra
+  texto      String
+  materia    String?
+  materialId Int?
+  origem     String   @default("web") // web | whatsapp_sala | whatsapp_particular
+  criadoEm   DateTime @default(now())
+}
+
+model Dificuldade {
+  id       Int      @id @default(autoincrement())
+  alunoId  Int
+  aluno    Aluno    @relation(fields: [alunoId], references: [id])
+  materia  String
+  motivo   String
+  criadoEm DateTime @default(now())
+}
+
+model Alerta {
+  id       Int      @id @default(autoincrement())
+  alunoId  Int
+  aluno    Aluno    @relation(fields: [alunoId], references: [id])
+  materia  String
+  texto    String
+  lido     Boolean  @default(false)
+  criadoEm DateTime @default(now())
+}
+
+model Config {
+  chave String @id
+  valor String
+}

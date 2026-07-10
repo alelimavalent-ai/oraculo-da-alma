@@ -1,0 +1,96 @@
+=== BASE DE CONHECIMENTO — 1ª SÉRIE DO ENSINO MÉDIO (BNCC / Novo ENEM / sistema Amplia) ===
+Você domina TODO o conteúdo abaixo como especialista sênior em cada matéria. Este é o programa do ano de Mateus e Lucas.
+
+MATEMÁTICA (capítulos exatos — Amplia, Matemática e Ciências da Natureza, Livro 2):
+1. Juros simples | 2. Sequências e padrões | 3. Progressão aritmética (PA) | 4. Exercícios sobre PA | 5. Progressão geométrica (PG) | 6. Exercícios sobre PG | 7. Introdução ao estudo de funções
+MATEMÁTICA (Livro 3 — continuação):
+1. Função afim e funções definidas por mais de uma sentença | 2. Exercícios sobre função afim | 3. Unidades de medida | 4. Exercícios sobre unidades de medida | 5. Triângulos e quadriláteros | 6. Exercícios sobre triângulos e quadriláteros | 7. Polígonos | 8. Exercícios sobre polígonos
+- Conteúdo que você domina: juros simples e montante; sequências e regularidades; PA (termo geral an = a1 + (n-1)r, soma); PG (an = a1·q^(n-1), soma finita e infinita, classificação); função afim (f(x)=ax+b, gráfico, raiz, funções por partes); unidades de medida (comprimento, área, volume, massa, tempo, conversões); geometria plana (triângulos, quadriláteros, polígonos, ângulos, soma dos ângulos internos, área e perímetro).
+
+FÍSICA (capítulos exatos — Amplia, Matemática e Ciências da Natureza, Livro 2):
+1. Introdução ao movimento circular | 2. Cinemática dos movimentos circulares | 3. Linguagem vetorial | 4. Cinemática vetorial | 5. Lançamento horizontal | 6. Lançamento oblíquo | 7. Leis de Newton
+FÍSICA (Livro 3 — continuação):
+1. Tipos de força | 2. Aplicações das leis de Newton | 3. Estática de ponto material | 4. Estática de corpo extenso | 5. Alavancas | 6. Exercícios: estática e leis de Newton | 7. Trabalho mecânico | 8. Potência e rendimento
+- Conteúdo que você domina: movimento circular (período, frequência, ω, v = ωR, aceleração centrípeta); vetores e cinemática vetorial; lançamento horizontal e oblíquo; Leis de Newton (inércia, F = ma, ação e reação); tipos de força (peso, normal, tração, atrito, elástica); estática (equilíbrio de ponto material e de corpo extenso, momento/torque, alavancas); trabalho mecânico (W = F·d·cosθ), potência (P = W/t) e rendimento.
+
+QUÍMICA / TRANSFORMAÇÕES QUÍMICAS:
+- Matéria, substâncias, misturas e processos de separação
+- Modelos atômicos (Dalton, Thomson, Rutherford, Bohr), estrutura do átomo, número atômico e massa
+- Distribuição eletrônica (diagrama de Linus Pauling)
+- Tabela periódica: famílias, períodos, propriedades periódicas
+- Ligações químicas: iônica, covalente e metálica; polaridade
+- Funções inorgânicas: ácidos, bases, sais e óxidos; pH básico
+- Reações químicas e balanceamento de equações
+- Transformações físicas x químicas, evidências de reação, estados físicos e mudanças de estado
+
+BIOLOGIA (capítulos exatos — Amplia, Matemática e Ciências da Natureza, Livro 2):
+1. Lipídeos: estrutura, características e funções | 2. Proteínas: estrutura, características e funções | 3. Proteínas: enzimas | 4. Ácidos nucleicos: características gerais e replicação | 5. Ácidos nucleicos: tipos de RNA e transcrição | 6. Ácidos nucleicos: tradução | 7. Citologia: células procariótica e eucariótica
+BIOLOGIA (Livro 3 — continuação):
+1. Citologia: membrana plasmática e especializações | 2. Citologia: transporte via membrana I | 3. Citologia: transporte via membrana II | 4. Citologia: citoplasma e organelas não membranosas | 5. Citologia: organelas membranosas I | 6. Citologia: organelas membranosas II | 7. Bioenergética: metabolismo anaeróbio | 8. Bioenergética: mitocôndria e respiração celular aeróbia
+- Conteúdo que você domina: bioquímica (lipídeos, proteínas, enzimas); ácidos nucleicos (DNA/RNA, replicação, transcrição, tradução); citologia completa (membrana plasmática e especializações; transporte passivo e ativo — difusão, osmose, bomba de sódio-potássio; organelas membranosas e não membranosas e suas funções); bioenergética (fermentação/metabolismo anaeróbio e respiração celular aeróbia na mitocôndria — glicólise, ciclo de Krebs, cadeia respiratória).
+
+LÍNGUA PORTUGUESA (capítulos exatos — Amplia, Linguagens e Ciências Humanas, Livro 1):
+1. Linguagem e língua | 2. Teoria da comunicação e funções da linguagem | 3. Variação linguística I | 4. Variação linguística II | 5. Figuras de linguagem I – figuras de pensamento | 6. Figuras de linguagem II – figuras de palavras | 7. Figuras de linguagem III – figuras de som | 8. Campos da análise linguística
+- Conteúdo que você domina: conceitos de linguagem/língua/fala; elementos e funções da linguagem (referencial, emotiva, conativa, fática, metalinguística, poética); variação linguística (regional, social, histórica, situacional); figuras de pensamento (antítese, ironia, hipérbole, eufemismo...), de palavras (metáfora, metonímia, catacrese...) e de som (aliteração, assonância, onomatopeia); classes de palavras e análise sintática.
+
+REDAÇÃO / PRODUÇÃO DE TEXTO (capítulos exatos — Amplia, Linguagens e Ciências Humanas, Livro 1):
+1. Texto e discurso | 2. Tipos de texto | 3. Domínios discursivos | 4. Interlocução, contexto e marcas ideológicas | 5. Gêneros discursivos e multimodalidade | 6. Gêneros digitais | 7. Elementos da narrativa | 8. Foco narrativo
+- Conteúdo que você domina: texto/discurso, coesão e coerência; tipos textuais (narrativo, descritivo, dissertativo-argumentativo, injuntivo, expositivo); gêneros discursivos e digitais; elementos da narrativa (enredo, personagens, tempo, espaço, narrador) e foco narrativo (1ª e 3ª pessoa, observador, onisciente).
+- IMPORTANTE: você também domina o modelo de redação dissertativo-argumentativa do ENEM (tese, argumentos, proposta de intervenção, as 5 competências) para ajudar nas provas.
+
+LITERATURA (capítulos exatos — Amplia, Linguagens e Ciências Humanas, Livro 1):
+1. Arte e criação literária | 2. Texto literário: figuras de linguagem | 3. Intertextualidade | 4. Gênero narrativo: tradição e modernidade | 5. Gênero lírico | 6. Gênero dramático | 7. Literatura medieval: Trovadorismo | 8. Classicismo: Luís de Camões
+- Conteúdo que você domina: o que é literatura e função estética; figuras de linguagem no texto literário; intertextualidade (paráfrase, paródia, citação, alusão); os três gêneros literários (narrativo, lírico, dramático) e seus elementos; Trovadorismo (cantigas de amor, de amigo, de escárnio e maldizer); Classicismo e Camões (Os Lusíadas, soneto camoniano, medida nova).
+
+HISTÓRIA:
+- Pré-história e origem do ser humano
+- Antiguidade Oriental: Mesopotâmia, Egito
+- Antiguidade Clássica: Grécia (democracia ateniense, filosofia, cultura) e Roma (república, império, direito)
+- Idade Média: feudalismo, Igreja, cruzadas
+- Transição para a modernidade: renascimento comercial, formação das monarquias nacionais
+- Grandes Navegações e expansão marítima; América pré-colombiana; início da colonização
+
+GEOGRAFIA:
+- Cartografia: escalas, projeções, coordenadas geográficas, fusos horários
+- Estrutura geológica da Terra, placas tectônicas, relevo e solos
+- Clima: fatores e elementos climáticos, tipos de clima, clima do Brasil
+- Hidrografia e bacias hidrográficas brasileiras
+- Biomas e domínios morfoclimáticos do Brasil; questões ambientais
+- Geografia da população: crescimento, pirâmides etárias, migrações
+
+FILOSOFIA (capítulos exatos do livro Amplia — Filosofia, Livro 1):
+1. Mitos | 2. A origem da Filosofia | 3. Os Pré-Socráticos | 4. Sócrates e os sofistas | 5. Filosofia platônica | 6. Filosofia aristotélica | 7. Escolas helenistas | 8. Agostinho de Hipona e a Patrística | 9. Escolástica | 10. Maquiavel | 11. Filosofia racionalista de Descartes | 12. Revolução científica de Francis Bacon | 13. A filosofia empirista de John Locke e David Hume | 14. A filosofia crítica de Kant | 15. A filosofia política de Hobbes e Locke
+- Quando o aluno citar um capítulo de Filosofia pelo número, use exatamente essa lista.
+
+SOCIOLOGIA:
+- O que é sociologia, contexto de surgimento (Revolução Industrial e Francesa)
+- Clássicos: Comte (positivismo), Durkheim (fato social), Weber (ação social), Marx (classes, trabalho e alienação)
+- Socialização, instituições sociais, cultura e sociedade
+- Indivíduo x sociedade, identidade, grupos sociais
+
+LÍNGUA INGLESA:
+- Verb to be, present simple e present continuous
+- Past simple (regulares e irregulares), past continuous
+- Future (will x going to)
+- Pronomes, artigos, preposições, adjetivos e advérbios
+- Vocabulário: rotina, família, escola, viagens, tecnologia
+- Reading e interpretação de textos (estilo ENEM: tirinhas, propagandas, artigos)
+
+ARTE:
+- Linguagens da arte (visual, música, teatro, dança)
+- Elementos da linguagem visual (ponto, linha, cor, forma, composição)
+- Arte na pré-história, arte antiga (Egito, Grécia, Roma), arte medieval
+- Renascimento e Barroco nas artes
+- Arte brasileira: barroco mineiro (Aleijadinho)
+
+EDUCAÇÃO FÍSICA:
+- Esportes coletivos e individuais: regras, fundamentos e táticas
+- Capacidades físicas (força, resistência, velocidade, flexibilidade)
+- Saúde, atividade física e qualidade de vida
+- Jogos, lutas e práticas corporais
+
+PROJETO DE VIDA:
+- Autoconhecimento, identidade e valores
+- Organização de rotina de estudos, metas e planejamento
+- Habilidades socioemocionais: disciplina, constância, resiliência
+- Escolhas, futuro profissional e cidadania

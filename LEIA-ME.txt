@@ -1,0 +1,90 @@
+============================================================
+ VALENTIM IA — PROFESSORA ALESSANDRA (v2)
+ Professora particular inteligente para Mateus e Lucas
+ Colégio Elite RJ — Norte Shopping
+============================================================
+
+JÁ VEM PRONTO DE FÁBRICA:
+- Mateus Silva de Lima (matrícula 25408822) e Lucas Silva de
+  Lima (matrícula 25408825), turma 1ª série A-M, com o BOLETIM
+  2026 completo já cadastrado (todas as 15 matérias e pontos).
+- A professora conhece o sistema de pontos do Elite (100 pontos
+  por matéria no ano) e já sabe as matérias mais fracas de cada
+  um (ex: Lucas em Literatura e Física; Mateus em Literatura).
+- LIVROS: basta cadastrar o NOME do livro/apostila na aba
+  Materiais — não precisa de PDF. Ela já domina o conteúdo.
+  Foto só serve para mostrar uma questão específica no chat.
+
+------------------------------------------------------------
+INSTALAÇÃO NO RAILWAY (sem Hetzner, sem WinSCP)
+------------------------------------------------------------
+Você já usa o Railway (é onde roda o Fourlink Prospector).
+São 3 partes: GitHub → Railway → Variáveis.
+
+PARTE 1 — GITHUB (pelo PC, no navegador)
+1. Entre em github.com com sua conta (alelimavalent-ai).
+2. Clique no "+" no canto superior direito → "New repository".
+3. Nome: professora-alessandra → marque "Private" → "Create repository".
+4. Na página do repositório, clique em "uploading an existing file".
+5. Extraia o ZIP no PC e ARRASTE TODO O CONTEÚDO da pasta
+   professora-alessandra para a página (Dockerfile, railway.json,
+   LEIA-ME.txt, e as pastas backend e frontend).
+6. Clique no botão verde "Commit changes".
+
+PARTE 2 — RAILWAY
+1. Entre em railway.app (ou o app) → "New Project".
+2. Escolha "Deploy from GitHub repo" → selecione
+   professora-alessandra.
+3. No mesmo projeto, clique em "+ Create" → "Database" →
+   "Add PostgreSQL". (Ele cria o banco sozinho.)
+
+PARTE 3 — VARIÁVEIS (clique no serviço professora-alessandra →
+aba "Variables" → "New Variable")
+1. DATABASE_URL  →  clique em "Add Reference" e escolha
+   Postgres → DATABASE_URL
+2. ANTHROPIC_API_KEY  →  cole a sua chave da API da Claude
+3. JWT_SECRET  →  valentim-ia-professora-2026
+
+DEPOIS:
+1. Aba "Settings" do serviço → "Networking" →
+   "Generate Domain". Vai aparecer um endereço tipo
+   professora-alessandra-production.up.railway.app
+2. (Recomendado) Aba "Settings" → "Volumes" → "Add Volume" →
+   Mount path: /app/uploads
+   (guarda as fotos enviadas no chat mesmo após atualização)
+3. Abra o endereço no navegador ou no celular. Pronto!
+
+LOGINS (4 acessos):
+
+RESPONSÁVEIS (veem tudo: chat, boletim, painel, materiais, config):
+- Você:  valentim@valentimia.com   senha: valentim123
+- Lene:  lene@valentimia.com       senha: lene123
+
+ALUNOS (entram direto no chat da Professora Alessandra + suas notas):
+- Mateus: mateus@valentimia.com    senha: mateus123
+- Lucas:  lucas@valentimia.com     senha: lucas123
+
+Troque as senhas depois. Cada aluno só vê o próprio material — não
+enxerga o histórico do irmão nem as configurações.
+
+------------------------------------------------------------
+COMO USAR
+------------------------------------------------------------
+- Escolha MATEUS ou LUCAS no topo (memória separada).
+- CHAT: dúvidas, explicações, resumos, simulados e plano de
+  estudo. Botão 📷 para foto de questão.
+- PAINEL: matérias mais difíceis + relatório de 30 dias.
+- BOLETIM: já vem preenchido; lance os pontos novos quando
+  saírem as próximas provas.
+- MATERIAIS: cadastre os livros só pelo nome.
+- Alertas amarelos avisam você quando a dificuldade se repete.
+
+------------------------------------------------------------
+WHATSAPP — 2 NÚMEROS (futuro)
+------------------------------------------------------------
+Na aba Config já dá para salvar o número da Sala de Estudos, o
+número Particular e o telefone de cada gêmeo (é assim que ela
+reconhece quem está falando). O webhook já está pronto no
+backend (/api/whatsapp/webhook). Quando quiser ativar, me peça:
+"ativar o WhatsApp da Professora Alessandra".
+============================================================
