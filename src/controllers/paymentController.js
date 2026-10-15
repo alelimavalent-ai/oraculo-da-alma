@@ -30,6 +30,29 @@ async function gerarPix(req, res) {
   const payment = db.prepare('SELECT * FROM payments WHERE consultation_id = ?').get(consultation.id);
   const cents = compraPdf ? precoCentavos() : (payment ? payment.amount_cents : precoCentavos());
   const valor = Number((cents / 100).toFixed(2));
+
+  // Já existe uma cobrança desta consulta? Não cria outra (evita o cliente pagar duas vezes).
+  if (payment && payment.provider_txid && payment.status !== 'confirmed') {
+    try {
+      const st = await asaas.consultarStatus(payment.provider_txid);
+      if (st.status === 'aprovado') {
+        db.prepare("UPDATE payments SET status = 'confirmed', confirmed_at = datetime('now') WHERE id = ?").run(payment.id);
+        if (compraPdf) {
+          db.prepare("UPDATE consultations SET pdf_paid = 1, payment_status = 'pdf_pago' WHERE id = ?").run(consultation.id);
+          return res.json({ jaLiberada: true, pdf: true });
+        }
+        db.prepare("UPDATE consultations SET status = 'paid', payment_status = 'pago' WHERE id = ?").run(consultation.id);
+        const user = db.prepare('SELECT * FROM users WHERE id = ?').get(consultation.user_id);
+        await gerarConteudo(db.prepare('SELECT * FROM consultations WHERE id = ?').get(consultation.id), user);
+        return res.json({ jaLiberada: true });
+      }
+      if (st.status === 'pendente' && Number(st.value) === valor) {
+        const qr = await asaas.pegarQrCode(payment.provider_txid);
+        return res.json({ ...qr, value: valor, valueBrl: 'R$ ' + valor.toFixed(2).replace('.', ','), status: 'pendente' });
+      }
+    } catch (e) { /* cobrança antiga inválida: segue e cria uma nova */ }
+  }
+
   const dueDate = DateTime.now().setZone('America/Sao_Paulo').toISODate();
 
   try {

@@ -30,11 +30,19 @@ async function asaasReq(path, method = 'GET', body) {
 // Reaproveita o cliente pelo CPF/CNPJ; cria se não existir.
 async function criarOuAcharCliente({ nome, cpf, whatsapp }) {
   const lista = await asaasReq('/customers?cpfCnpj=' + encodeURIComponent(cpf));
-  if (lista && Array.isArray(lista.data) && lista.data.length) return lista.data[0].id;
+  if (lista && Array.isArray(lista.data) && lista.data.length) {
+    const existente = lista.data[0];
+    // Desliga os avisos do Asaas (SMS/WhatsApp/e-mail) — cada aviso gera "taxa de mensageria".
+    if (!existente.notificationDisabled) {
+      try { await asaasReq('/customers/' + existente.id, 'POST', { notificationDisabled: true }); } catch (e) {}
+    }
+    return existente.id;
+  }
   const novo = await asaasReq('/customers', 'POST', {
     name: nome,
     cpfCnpj: cpf,
     mobilePhone: whatsapp || undefined,
+    notificationDisabled: true, // o site já mostra o PIX; sem avisos do Asaas = sem taxa de mensageria
   });
   return novo.id;
 }
@@ -59,6 +67,15 @@ async function criarCobrancaPix({ nome, cpf, whatsapp, valor, descricao, dueDate
   };
 }
 
+// Busca de novo o QR Code de uma cobrança já criada (evita cobrar duas vezes).
+async function pegarQrCode(asaasId) {
+  const qr = await asaasReq('/payments/' + asaasId + '/pixQrCode');
+  return {
+    qrCodeImage: qr.encodedImage ? 'data:image/png;base64,' + qr.encodedImage : null,
+    copiaECola: qr.payload || null,
+  };
+}
+
 const APROVADO = ['RECEIVED', 'CONFIRMED', 'RECEIVED_IN_CASH'];
 const PENDENTE = ['PENDING', 'AWAITING_RISK_ANALYSIS'];
 
@@ -71,4 +88,4 @@ async function consultarStatus(asaasId) {
   return { status, raw: pay.status, value: pay.value };
 }
 
-module.exports = { criarCobrancaPix, consultarStatus };
+module.exports = { criarCobrancaPix, consultarStatus, pegarQrCode };
