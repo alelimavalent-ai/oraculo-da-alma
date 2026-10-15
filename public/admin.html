@@ -7,7 +7,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;600;700&family=Spectral:ital,wght@0,400;0,600;1,400&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="styles.css" />
+  <link rel="stylesheet" href="/styles.css" />
   <style>
     .admin-shell { max-width: 920px; }
     .tabs { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 18px; }
@@ -47,6 +47,7 @@
     <div id="dash" class="hidden">
       <div class="tabs">
         <button class="tab active" data-tab="ia">IA / OpenAI</button>
+        <button class="tab" data-tab="gratis">Grátis × Pagantes</button>
         <button class="tab" data-tab="consultas">Consultas</button>
         <button class="tab" data-tab="financeiro">Financeiro</button>
         <button class="tab" data-tab="usuarios">Usuários</button>
@@ -63,6 +64,19 @@
         <p class="muted">Roda uma tiragem de Tarot real e pede a interpretação à IA (sem custo).</p>
         <button class="btn mt" id="btnTestIA">Testar IA agora</button>
         <div id="ia-test" class="mt"></div>
+      </section>
+
+      <!-- Grátis × Pagantes -->
+      <section class="tabview card hidden" id="view-gratis">
+        <h2>Grátis × Pagantes</h2>
+        <p class="muted mt">Quem fez a consulta grátis e quem pagou depois (PDF ou nova consulta).</p>
+        <div id="gratis-resumo" class="mt" style="display:flex;flex-wrap:wrap;gap:12px"></div>
+        <div class="mt" style="display:flex;gap:8px;flex-wrap:wrap">
+          <button class="btn ghost" data-filtro="todos" style="width:auto;padding:8px 14px">Todos</button>
+          <button class="btn ghost" data-filtro="pagou" style="width:auto;padding:8px 14px">Pagaram</button>
+          <button class="btn ghost" data-filtro="naopagou" style="width:auto;padding:8px 14px">Só grátis</button>
+        </div>
+        <div class="panel mt" id="gratis-box"><div class="spinner"></div></div>
       </section>
 
       <!-- Consultas -->
@@ -164,6 +178,50 @@
       } catch (e) { $('#ia-test').innerHTML = `<div class="alert err">${e.message}</div>`; }
     });
 
+    let _gratis = null;
+    let _filtro = 'todos';
+    function cartao(titulo, valor, cor) {
+      return `<div class="card" style="flex:1;min-width:130px;text-align:center;padding:14px">
+        <div class="muted" style="font-size:0.72rem;letter-spacing:0.05em">${titulo}</div>
+        <div style="font-family:'Cinzel',serif;font-size:1.5rem;color:${cor || 'var(--gold-2)'}">${valor}</div></div>`;
+    }
+    function linkWhats(n) {
+      const d = String(n || '').replace(/\D/g, '');
+      if (!d) return '<span class="muted">—</span>';
+      const num = d.length <= 11 ? '55' + d : d;
+      return `<a href="https://wa.me/${num}" target="_blank" rel="noopener" style="color:var(--gold-2)">${esc(n)}</a>`;
+    }
+    function desenharGratis() {
+      const d = _gratis; if (!d) return;
+      const r = d.resumo;
+      $('#gratis-resumo').innerHTML =
+        cartao('CONSULTAS GRÁTIS', r.totalGratis, 'var(--cream)') +
+        cartao('PAGARAM DEPOIS', r.pagaram) +
+        cartao('CONVERSÃO', r.conversao + '%') +
+        cartao('RECEITA DESSES CLIENTES', r.receitaBrl);
+      const tipos = { mapa_astral: 'Mapa Astral', astrologia_vedica: 'Védica', tarot: 'Tarot', buzios: 'Búzios' };
+      const lista = d.lista.filter((x) => _filtro === 'todos' || (_filtro === 'pagou' ? x.pagou : !x.pagou));
+      if (!lista.length) { $('#gratis-box').innerHTML = '<p class="muted">Ninguém nesta lista ainda.</p>'; return; }
+      const rows = lista.map((x) => {
+        const status = x.pagou
+          ? `<span class="status-pill s-pago">Pagou · ${esc(x.gastoBrl)}</span><br><span class="muted" style="font-size:0.75rem">${x.pagouPdf ? 'PDF' : ''}${x.pagouPdf && x.consultasPagasDepois ? ' + ' : ''}${x.consultasPagasDepois ? x.consultasPagasDepois + ' consulta(s) paga(s)' : ''}</span>`
+          : '<span class="status-pill s-pendente">Só grátis</span>';
+        return `<tr>
+          <td>${esc(x.nome)}<br><span class="muted" style="font-size:0.75rem">${esc(x.email)}</span></td>
+          <td>${linkWhats(x.whatsapp)}<br><span class="muted" style="font-size:0.75rem">${esc(x.cpf)}</span></td>
+          <td>${esc(tipos[x.tipo] || x.tipo)}${x.categoria ? '<br><span class="muted" style="font-size:0.75rem">' + esc(x.categoria) + '</span>' : ''}</td>
+          <td>${new Date(x.data + 'Z').toLocaleString('pt-BR')}</td>
+          <td>${status}</td>
+        </tr>`;
+      }).join('');
+      $('#gratis-box').innerHTML = `<table><thead><tr><th>Cliente</th><th>WhatsApp / CPF</th><th>Consulta</th><th>Data</th><th>Pagou?</th></tr></thead><tbody>${rows}</tbody></table>`;
+    }
+    async function carregarGratis() {
+      try { _gratis = await api('/api/admin/gratis'); desenharGratis(); }
+      catch (e) { $('#gratis-box').innerHTML = `<div class="alert err">${e.message}</div>`; }
+    }
+    document.querySelectorAll('[data-filtro]').forEach((b) => b.addEventListener('click', () => { _filtro = b.dataset.filtro; desenharGratis(); }));
+
     async function carregarConsultas() {
       try {
         const d = await api('/api/admin/consultations');
@@ -171,10 +229,12 @@
         try { const s = await api('/api/admin/settings'); priceTxt = s.consultation_price_brl; } catch (e) {}
         const pagas = d.consultas.filter((c) => c.payment_status === 'pago').length;
         const gratis = d.consultas.filter((c) => c.payment_status === 'gratis_admin').length;
+        const gratisClientes = d.consultas.filter((c) => c.payment_status === 'gratis' || c.payment_status === 'pdf_pago').length;
         const pdfs = d.consultas.filter((c) => c.pdf_path).length;
         $('#consultas-stats').innerHTML = `
           <span class="status-pill s-pago">Pagas: ${pagas}</span>
           <span class="status-pill s-gratis_admin">Grátis admin: ${gratis}</span>
+          <span class="status-pill s-pendente">Grátis clientes: ${gratisClientes}</span>
           <span class="status-pill s-pendente">PDFs gerados: ${pdfs}</span>
           <span class="status-pill s-pendente">Valor atual: ${priceTxt}</span>`;
         if (!d.consultas.length) { $('#consultas-box').innerHTML = '<p class="muted">Nenhuma consulta ainda.</p>'; return; }
@@ -256,7 +316,7 @@
         if (role !== 'admin' && role !== 'superadmin') return gate('Esta conta não tem acesso administrativo.');
         $('#gate').classList.add('hidden');
         $('#dash').classList.remove('hidden');
-        carregarIA(); carregarConsultas(); carregarFinanceiro(); carregarUsuarios(); carregarConfig();
+        carregarIA(); carregarGratis(); carregarConsultas(); carregarFinanceiro(); carregarUsuarios(); carregarConfig();
       } catch (e) {
         gate('Sessão inválida. Entre novamente.');
       }

@@ -8,6 +8,8 @@ const USER_KEY = 'oraculo_user';
 
 // Estado da consulta em andamento
 let fluxo = { type: null, category: null, consultationId: null, birth: null };
+// Consulta grátis (1ª consulta de cada pessoa)
+let gratis = { disponivel: false, precoBrl: '' };
 
 // ---------- Util ----------
 const $ = (sel) => document.querySelector(sel);
@@ -168,8 +170,10 @@ function enterApp() {
   if (sub) {
     sub.innerHTML = isAdmin
       ? 'Consultas <strong style="color:#d8c7ef">grátis e ilimitadas</strong> (modo administrador).'
-      : 'Escolha sua consulta. Cada leitura custa <strong style="color:var(--gold-2)">R$ 39,99</strong>.';
+      : 'Escolha sua consulta. Cada leitura custa <strong class="preco-atual" style="color:var(--gold-2)">…</strong>.';
+    atualizarPreco();
   }
+  if (!isAdmin) verificarGratis(); else gratis.disponivel = false;
 
   // Botão para o painel administrativo
   let adminBtn = document.getElementById('btnAdminPanel');
@@ -196,7 +200,7 @@ const CATEGORIAS = {
 
 $$('[data-consulta]').forEach((tile) => {
   tile.addEventListener('click', () => {
-    fluxo = { type: tile.dataset.consulta, category: null, consultationId: null, birth: null };
+    fluxo = { type: tile.dataset.consulta, category: null, consultationId: null, birth: null, gratisDados: fluxo.gratisDados || null, compraPdf: false };
     if (fluxo.type === 'mapa_astral' || fluxo.type === 'astrologia_vedica') {
       prepararNascimento();
       show('view-birth');
@@ -214,6 +218,7 @@ function prepararNascimento() {
   $('#b-hora').value = user.birth_time || '';
   $('#b-cidade').value = user.birth_city || '';
   $('#birth-title').textContent = fluxo.type === 'mapa_astral' ? 'Mapa Astral' : 'Astrologia Védica';
+  $('#btnBirthNext').textContent = textoBotaoNascimento();
   alertBox('birth-alert', '', '');
 }
 
@@ -266,15 +271,73 @@ $('#btnBirthNext').addEventListener('click', async () => {
     alertBox('birth-alert', 'err', err.message);
   } finally {
     $('#btnBirthNext').disabled = false;
-    $('#btnBirthNext').textContent = 'Continuar para o pagamento';
+    $('#btnBirthNext').textContent = textoBotaoNascimento();
   }
 });
 
+// ---------- Consulta grátis ----------
+async function verificarGratis() {
+  try {
+    const d = await api('/api/consultations/gratis/status');
+    gratis.disponivel = !!d.disponivel;
+    gratis.precoBrl = d.precoBrl || '';
+  } catch (e) { gratis.disponivel = false; }
+  const sub = document.getElementById('consultaSubtitle');
+  if (sub && gratis.disponivel) {
+    sub.innerHTML = '✨ <strong style="color:var(--gold-2)">Sua primeira consulta é grátis!</strong> Escolha abaixo.';
+  }
+}
+
+function textoBotaoNascimento() {
+  return gratis.disponivel ? 'Ver minha consulta grátis' : 'Continuar para o pagamento';
+}
+
+function abrirTelaGratis() {
+  alertBox('gratis-alert', '', '');
+  $('#btnGratisPagar').classList.add('hidden');
+  $('#btnGratisConfirmar').classList.remove('hidden');
+  show('view-gratis');
+}
+
+$('#btnGratisConfirmar') && $('#btnGratisConfirmar').addEventListener('click', async () => {
+  alertBox('gratis-alert', '', '');
+  const cpf = $('#g-cpf').value.replace(/\D/g, '');
+  const whatsapp = $('#g-whats').value.replace(/\D/g, '');
+  if (cpf.length !== 11) return alertBox('gratis-alert', 'err', 'Digite os 11 números do CPF.');
+  if (whatsapp.length < 10) return alertBox('gratis-alert', 'err', 'Digite o WhatsApp com DDD.');
+  fluxo.gratisDados = { cpf, whatsapp };
+  await criarConsulta();
+});
+
+$('#btnGratisPagar') && $('#btnGratisPagar').addEventListener('click', async () => {
+  gratis.disponivel = false;
+  fluxo.gratisDados = null;
+  await criarConsulta();
+});
+
+function carregando(on) {
+  const el = document.getElementById('loading-overlay');
+  if (el) el.classList.toggle('hidden', !on);
+}
+
 // ---------- Criar consulta + pagamento ----------
 async function criarConsulta() {
+  // 1ª consulta grátis: pede CPF e WhatsApp antes.
+  if (gratis.disponivel && !fluxo.gratisDados) { abrirTelaGratis(); return; }
+  const usandoGratis = gratis.disponivel && !!fluxo.gratisDados;
   try {
     const body = { type: fluxo.type, category: fluxo.category, birth: fluxo.birth };
-    const data = await api('/api/consultations', { method: 'POST', body });
+    if (usandoGratis) Object.assign(body, { gratis: true, cpf: fluxo.gratisDados.cpf, whatsapp: fluxo.gratisDados.whatsapp });
+    carregando(true);
+    let data;
+    try { data = await api('/api/consultations', { method: 'POST', body }); }
+    finally { carregando(false); }
+
+    if (data.gratis) {
+      gratis.disponivel = false;
+      const sub = document.getElementById('consultaSubtitle');
+      if (sub) sub.innerHTML = 'Escolha sua consulta. Cada leitura custa <strong class="preco-atual" style="color:var(--gold-2)">' + (data.precoPdfBrl || '') + '</strong>.';
+    }
 
     // Admin: consulta grátis já gerada — mostra o resultado direto.
     if (data.free && data.resultado) {
@@ -286,16 +349,41 @@ async function criarConsulta() {
         created_at: agora,
         resultado: data.resultado,
         aviso: data.aviso,
+        pdfBloqueado: !!data.pdfBloqueado,
+        precoPdfBrl: data.precoPdfBrl,
       });
       return;
     }
 
     fluxo.consultationId = data.consultation.id;
+    fluxo.compraPdf = false;
     iniciarTelaPix(data.payment);
   } catch (err) {
+    if (usandoGratis) {
+      show('view-gratis');
+      alertBox('gratis-alert', 'err', err.message);
+      if (/já usou/i.test(err.message)) {
+        $('#btnGratisConfirmar').classList.add('hidden');
+        $('#btnGratisPagar').classList.remove('hidden');
+      }
+      return;
+    }
     if (fluxo.birth) alertBox('birth-alert', 'err', err.message);
     else alert(err.message);
   }
+}
+
+// Consulta grátis: compra do relatório em PDF.
+function comprarPdf(consultationId, precoBrl) {
+  fluxo.consultationId = consultationId;
+  fluxo.compraPdf = true;
+  iniciarTelaPix({ amount_brl: precoBrl || gratis.precoBrl });
+  if (fluxo.gratisDados) {
+    $('#pix-cpf').value = fluxo.gratisDados.cpf;
+    $('#pix-whats').value = fluxo.gratisDados.whatsapp;
+  }
+  const t = document.getElementById('pay-title');
+  if (t) t.textContent = 'Relatório premium em PDF';
 }
 
 // Prepara a tela de pagamento (passo 1: dados)
@@ -308,6 +396,8 @@ function iniciarTelaPix(payment) {
   alertBox('pix-form-alert', '', '');
   alertBox('pay-alert', '', '');
   if (payment && payment.amount_brl) $('#pay-price').textContent = payment.amount_brl;
+  const t = document.getElementById('pay-title');
+  if (t) t.textContent = 'Pagamento via PIX';
   if (pixPollTimer) { clearInterval(pixPollTimer); pixPollTimer = null; }
   show('view-payment');
 }
@@ -362,6 +452,7 @@ function iniciarPolling(consultationId) {
         clearInterval(pixPollTimer); pixPollTimer = null;
         $('#pay-status').textContent = 'aprovado ✓';
         await abrirResultado(consultationId);
+        if (r.pdf) alert('Pagamento aprovado! Seu relatório premium em PDF está liberado. Toque em "Baixar relatório premium".');
       } else {
         $('#pay-status').textContent = 'aguardando pagamento…';
       }
@@ -385,6 +476,8 @@ $('#btnCancelarPix').addEventListener('click', () => {
 
 // ---------- Resultado ----------
 let _consultaAtualId = null;
+let _pdfBloqueado = false;
+let _precoPdf = '';
 
 function mostrarResultado(data) {
   _consultaAtualId = data.id || null;
@@ -394,9 +487,32 @@ function mostrarResultado(data) {
   $('#result-text').textContent = data.resultado || '';
   $('#result-disclaimer').textContent = data.aviso || '';
   const pdfBtn = document.getElementById('btnBaixarPdf');
-  if (pdfBtn) pdfBtn.classList.toggle('hidden', !_consultaAtualId);
+  _pdfBloqueado = !!data.pdfBloqueado;
+  _precoPdf = data.precoPdfBrl || gratis.precoBrl || '';
+  if (pdfBtn) {
+    pdfBtn.classList.toggle('hidden', !_consultaAtualId);
+    pdfBtn.textContent = _pdfBloqueado
+      ? `🔓 Liberar relatório premium em PDF — ${_precoPdf}`
+      : '📄 Baixar relatório premium';
+  }
+  const up = document.getElementById('pdf-upsell');
+  if (up) up.classList.toggle('hidden', !_pdfBloqueado);
   show('view-result');
 }
+
+// Mostra o preço atual (definido no painel admin) em todos os lugares do site.
+async function atualizarPreco() {
+  try {
+    const r = await fetch('/api/preco');
+    const d = await r.json();
+    if (d && d.brl) {
+      document.querySelectorAll('.preco-atual').forEach((el) => { el.textContent = d.brl; });
+      const pp = document.getElementById('pay-price');
+      if (pp && /39,99|…/.test(pp.textContent)) pp.textContent = d.brl;
+    }
+  } catch (e) {}
+}
+atualizarPreco();
 
 // Navegador interno do Instagram/Facebook/TikTok não deixa baixar arquivos.
 function emNavegadorInterno() {
@@ -435,6 +551,7 @@ function mostrarAvisoPdf(url) {
 
 async function baixarPDF(id) {
   if (!id) return;
+  if (_pdfBloqueado) { comprarPdf(id, _precoPdf); return; }
   const btn = document.getElementById('btnBaixarPdf');
   const txt = btn ? btn.textContent : '';
   if (btn) { btn.disabled = true; btn.textContent = 'Gerando PDF…'; }
@@ -444,6 +561,7 @@ async function baixarPDF(id) {
         headers: { Authorization: 'Bearer ' + token() },
       });
       const d = await r.json().catch(() => ({}));
+      if (d.precisaPagar) { comprarPdf(id, d.precoPdfBrl); return; }
       if (!r.ok || !d.url) throw new Error(d.error || 'Erro ao gerar o link do PDF.');
       mostrarAvisoPdf(d.url);
       return;
@@ -453,6 +571,7 @@ async function baixarPDF(id) {
     });
     if (!res.ok) {
       const e = await res.json().catch(() => ({}));
+      if (e.precisaPagar) { comprarPdf(id, e.precoPdfBrl); return; }
       throw new Error(e.error || 'Erro ao gerar o PDF.');
     }
     const blob = await res.blob();
@@ -495,7 +614,7 @@ async function carregarHistorico() {
           <div class="tipo">${tipos[c.type] || c.type}${c.category ? ' · ' + c.category : ''}</div>
           <div class="data">${new Date(c.created_at + 'Z').toLocaleString('pt-BR')}</div>
         </div>
-        <span class="badge ${done ? 'done' : 'wait'}">${done ? 'Liberada' : 'Pendente'}</span>`;
+        <span class="badge ${done ? 'done' : 'wait'}">${!done ? 'Pendente' : (c.is_free ? (c.pdf_paid ? 'Grátis · PDF pago' : 'Grátis') : 'Liberada')}</span>`;
       if (done) {
         row.style.cursor = 'pointer';
         row.addEventListener('click', async () => {

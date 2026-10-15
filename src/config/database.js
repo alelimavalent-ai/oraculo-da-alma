@@ -163,10 +163,26 @@ function runMigrations() {
   ensureColumn('consultations', 'input_json', 'TEXT');
   ensureColumn('consultations', 'technical_json', 'TEXT');
   ensureColumn('consultations', 'payment_status', "TEXT NOT NULL DEFAULT 'pendente'");
+  // Consulta grátis (1 por CPF) e liberação do PDF pago
+  ensureColumn('consultations', 'is_free', 'INTEGER NOT NULL DEFAULT 0');
+  ensureColumn('consultations', 'pdf_paid', 'INTEGER NOT NULL DEFAULT 0');
+  ensureColumn('users', 'cpf', 'TEXT');
+  sqlDb.run(`CREATE TABLE IF NOT EXISTS gratis_cpf (
+    cpf TEXT PRIMARY KEY,
+    user_id INTEGER,
+    consultation_id INTEGER,
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+  )`);
   // Padroniza o papel antigo 'user' para 'customer'
   sqlDb.run("UPDATE users SET role = 'customer' WHERE role = 'user'");
   // Valor padrão da consulta (em centavos): R$ 39,99 — editável no admin
-  sqlDb.run("INSERT OR IGNORE INTO settings (key, value) VALUES ('consultation_price_cents', '3999')");
+  // Se existir CONSULTA_PRECO_CENTAVOS no Render, ele vale a cada reinício (ex.: 1000 = R$ 10,00).
+  const precoEnv = parseInt(process.env.CONSULTA_PRECO_CENTAVOS || '', 10);
+  if (Number.isFinite(precoEnv) && precoEnv > 0) {
+    sqlDb.run("INSERT OR REPLACE INTO settings (key, value) VALUES ('consultation_price_cents', ?)", [String(precoEnv)]);
+  } else {
+    sqlDb.run("INSERT OR IGNORE INTO settings (key, value) VALUES ('consultation_price_cents', '3999')");
+  }
 }
 
 // ---------- Inicialização (assíncrona, uma única vez) ----------

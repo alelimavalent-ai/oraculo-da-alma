@@ -22,10 +22,13 @@ async function gerarPix(req, res) {
   const consultation = db.prepare('SELECT * FROM consultations WHERE id = ? AND user_id = ?')
     .get(Number(consultationId), req.user.id);
   if (!consultation) return res.status(404).json({ error: 'Consulta não encontrada.' });
-  if (consultation.status === 'completed') return res.json({ jaLiberada: true });
+  // Consulta grátis: o PIX é para liberar o relatório em PDF.
+  const compraPdf = !!consultation.is_free;
+  if (compraPdf && consultation.pdf_paid) return res.json({ jaLiberada: true, pdf: true });
+  if (!compraPdf && consultation.status === 'completed') return res.json({ jaLiberada: true });
 
   const payment = db.prepare('SELECT * FROM payments WHERE consultation_id = ?').get(consultation.id);
-  const cents = payment ? payment.amount_cents : precoCentavos();
+  const cents = compraPdf ? precoCentavos() : (payment ? payment.amount_cents : precoCentavos());
   const valor = Number((cents / 100).toFixed(2));
   const dueDate = DateTime.now().setZone('America/Sao_Paulo').toISODate();
 
@@ -35,7 +38,7 @@ async function gerarPix(req, res) {
       cpf: soDigitos(cpf),
       whatsapp: soDigitos(whatsapp),
       valor,
-      descricao: 'Consulta Oráculo da Alma',
+      descricao: compraPdf ? 'Relatório premium em PDF — Oráculo da Alma' : 'Consulta Oráculo da Alma',
       dueDate,
     });
 
@@ -45,11 +48,11 @@ async function gerarPix(req, res) {
     } else {
       db.prepare(`
         INSERT INTO payments (user_id, consultation_id, amount_cents, method, status, provider_txid)
-        VALUES (?, ?, ?, 'pix', 'pending', ?)
-      `).run(req.user.id, consultation.id, cents, cob.asaasId);
+        VALUES (?, ?, ?, ?, 'pending', ?)
+      `).run(req.user.id, consultation.id, cents, compraPdf ? 'pix_pdf' : 'pix', cob.asaasId);
     }
-    // Guarda o WhatsApp do cliente.
-    db.prepare('UPDATE users SET phone = ? WHERE id = ?').run(whatsapp, req.user.id);
+    // Guarda o WhatsApp e o CPF do cliente.
+    db.prepare('UPDATE users SET phone = ?, cpf = COALESCE(cpf, ?) WHERE id = ?').run(whatsapp, soDigitos(cpf), req.user.id);
 
     return res.json({
       qrCodeImage: cob.qrCodeImage,
@@ -69,7 +72,9 @@ async function statusPix(req, res) {
   const consultation = db.prepare('SELECT * FROM consultations WHERE id = ? AND user_id = ?')
     .get(consultationId, req.user.id);
   if (!consultation) return res.status(404).json({ error: 'Consulta não encontrada.' });
-  if (consultation.status === 'completed') return res.json({ status: 'aprovado', released: true });
+  const compraPdf = !!consultation.is_free;
+  if (compraPdf && consultation.pdf_paid) return res.json({ status: 'aprovado', released: true, pdf: true });
+  if (!compraPdf && consultation.status === 'completed') return res.json({ status: 'aprovado', released: true });
 
   const payment = db.prepare('SELECT * FROM payments WHERE consultation_id = ?').get(consultationId);
   if (!payment || !payment.provider_txid) {
@@ -78,6 +83,11 @@ async function statusPix(req, res) {
 
   try {
     const st = await asaas.consultarStatus(payment.provider_txid);
+    if (st.status === 'aprovado' && compraPdf) {
+      db.prepare("UPDATE payments SET status = 'confirmed', confirmed_at = datetime('now') WHERE id = ?").run(payment.id);
+      db.prepare("UPDATE consultations SET pdf_paid = 1, payment_status = 'pdf_pago' WHERE id = ?").run(consultationId);
+      return res.json({ status: 'aprovado', released: true, pdf: true });
+    }
     if (st.status === 'aprovado') {
       db.prepare("UPDATE payments SET status = 'confirmed', confirmed_at = datetime('now') WHERE id = ?").run(payment.id);
       db.prepare("UPDATE consultations SET status = 'paid', payment_status = 'pago' WHERE id = ?").run(consultationId);

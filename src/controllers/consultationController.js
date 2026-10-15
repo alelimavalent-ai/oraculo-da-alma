@@ -8,6 +8,7 @@ const { gerarConteudo } = require('../services/geracao');
 const ia = require('../services/openai');
 const jwt = require('jsonwebtoken');
 const config = require('../config/env');
+const { soDigitos, cpfValido } = require('../utils/cpf');
 
 const TIPOS_VALIDOS = ['mapa_astral', 'astrologia_vedica', 'tarot', 'buzios'];
 
@@ -69,6 +70,46 @@ async function criarConsulta(req, res) {
     }
   }
 
+  // ---- CLIENTE: 1ª consulta grátis (1 por CPF). O PDF é pago à parte. ----
+  if (req.body && req.body.gratis) {
+    const cpf = soDigitos(req.body.cpf);
+    const whatsapp = soDigitos(req.body.whatsapp);
+    if (!cpfValido(cpf)) return res.status(400).json({ error: 'CPF inválido. Confira os números.' });
+    if (whatsapp.length < 10) return res.status(400).json({ error: 'Informe o WhatsApp com DDD.' });
+    const jaUsouConta = db.prepare('SELECT id FROM consultations WHERE user_id = ? AND is_free = 1').get(req.user.id);
+    if (jaUsouConta) return res.status(409).json({ error: 'Você já usou sua consulta grátis.', gratisUsada: true });
+    const jaUsouCpf = db.prepare('SELECT cpf FROM gratis_cpf WHERE cpf = ?').get(cpf);
+    if (jaUsouCpf) return res.status(409).json({ error: 'Este CPF já usou a consulta grátis.', gratisUsada: true });
+
+    const ins = db.prepare(`
+      INSERT INTO consultations (user_id, type, category, status, payment_status, input_json, is_free, pdf_paid)
+      VALUES (?, ?, ?, 'paid', 'gratis', ?, 1, 0)
+    `).run(req.user.id, type, category || null, JSON.stringify(inputData));
+    const consultationId = ins.lastInsertRowid;
+    db.prepare('INSERT INTO gratis_cpf (cpf, user_id, consultation_id) VALUES (?, ?, ?)').run(cpf, req.user.id, consultationId);
+    db.prepare('UPDATE users SET cpf = ?, phone = ? WHERE id = ?').run(cpf, whatsapp, req.user.id);
+
+    const consultation = db.prepare('SELECT * FROM consultations WHERE id = ?').get(consultationId);
+    try {
+      const { texto, technical } = await gerarConteudo(consultation, user);
+      return res.status(201).json({
+        free: true,
+        gratis: true,
+        pdfBloqueado: true,
+        precoPdfBrl: brl(precoCentavos()),
+        consultation: { id: consultationId, type, category: category || null, status: 'completed', payment_status: 'gratis' },
+        resultado: texto,
+        dadosTecnicos: technical,
+        aviso: ia.AVISO,
+      });
+    } catch (err) {
+      // Falhou a geração: libera a grátis de novo para a pessoa tentar outra vez.
+      db.prepare('DELETE FROM gratis_cpf WHERE consultation_id = ?').run(consultationId);
+      db.prepare('DELETE FROM consultations WHERE id = ?').run(consultationId);
+      return res.status(502).json({ error: 'Erro ao gerar a consulta. Tente novamente em instantes.' });
+    }
+  }
+
   // ---- CLIENTE COMUM: precisa pagar PIX ----
   const price = precoCentavos();
   const insert = db.prepare(`
@@ -124,7 +165,7 @@ async function confirmarPagamento(req, res) {
 // ---------- Histórico do usuário ----------
 function listarConsultas(req, res) {
   const rows = db.prepare(`
-    SELECT id, type, category, status, payment_status, created_at,
+    SELECT id, type, category, status, payment_status, created_at, is_free, pdf_paid,
            (result_text IS NOT NULL) AS tem_resultado
     FROM consultations
     WHERE user_id = ?
@@ -148,6 +189,10 @@ function detalheConsulta(req, res) {
     status: row.status,
     payment_status: row.payment_status,
     created_at: row.created_at,
+    is_free: row.is_free,
+    pdf_paid: row.pdf_paid,
+    pdfBloqueado: !!row.is_free && !row.pdf_paid,
+    precoPdfBrl: brl(precoCentavos()),
     resultado: row.result_text,
     dadosTecnicos: row.technical_json ? JSON.parse(row.technical_json) : null,
     aviso: ia.AVISO,
@@ -167,6 +212,18 @@ async function montarPdf(row) {
   return buffer;
 }
 
+// Consulta grátis: o PDF só sai depois de pago.
+function pdfLiberado(req, row) {
+  return isAdmin(req.user.role) || !row.is_free || !!row.pdf_paid;
+}
+function respostaPdfBloqueado(res) {
+  return res.status(402).json({
+    error: `Libere seu relatório premium em PDF por ${brl(precoCentavos())}.`,
+    precisaPagar: true,
+    precoPdfBrl: brl(precoCentavos()),
+  });
+}
+
 function buscarConsultaDoUsuario(req, id) {
   return isAdmin(req.user.role)
     ? db.prepare('SELECT * FROM consultations WHERE id = ?').get(id)
@@ -180,6 +237,7 @@ async function baixarPdf(req, res) {
   if (row.status !== 'completed') {
     return res.status(402).json({ error: 'Consulta ainda não liberada. Conclua o pagamento.' });
   }
+  if (!pdfLiberado(req, row)) return respostaPdfBloqueado(res);
   try {
     const buffer = await montarPdf(row);
     res.setHeader('Content-Type', 'application/pdf');
@@ -199,6 +257,7 @@ function linkPdf(req, res) {
   if (row.status !== 'completed') {
     return res.status(402).json({ error: 'Consulta ainda não liberada. Conclua o pagamento.' });
   }
+  if (!pdfLiberado(req, row)) return respostaPdfBloqueado(res);
   const t = jwt.sign({ pdf: id }, config.jwtSecret, { expiresIn: '2h' });
   const host = req.get('x-forwarded-host') || req.get('host');
   const url = `https://${host}/api/consultations/${id}/pdf/abrir?t=${encodeURIComponent(t)}`;
@@ -215,7 +274,9 @@ function consultaPorLink(req) {
     return null;
   }
   const row = db.prepare('SELECT * FROM consultations WHERE id = ?').get(id);
-  return row && row.status === 'completed' ? row : null;
+  if (!row || row.status !== 'completed') return null;
+  if (row.is_free && !row.pdf_paid) return null;
+  return row;
 }
 
 const NOME_ARQUIVO = 'Oraculo-da-Alma-Relatorio.pdf';
@@ -300,7 +361,15 @@ async function arquivoPdfPorLink(req, res) {
   }
 }
 
+// A pessoa ainda tem a consulta grátis?
+function statusGratis(req, res) {
+  if (isAdmin(req.user.role)) return res.json({ disponivel: false, admin: true });
+  const usada = db.prepare('SELECT id FROM consultations WHERE user_id = ? AND is_free = 1').get(req.user.id);
+  return res.json({ disponivel: !usada, precoBrl: brl(precoCentavos()) });
+}
+
 module.exports = {
+  statusGratis,
   criarConsulta,
   confirmarPagamento,
   listarConsultas,

@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;600;700&family=Spectral:ital,wght@0,400;0,600;1,400&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="styles.css" />
+  <link rel="stylesheet" href="/styles.css" />
 </head>
 <body>
   <canvas id="starfield" aria-hidden="true"></canvas>
@@ -217,11 +217,28 @@
       </div>
     </section>
 
+    <!-- ===================== CONSULTA GRÁTIS ===================== -->
+    <section class="view hidden" id="view-gratis">
+      <div class="card center">
+        <div class="price">Grátis ✨</div>
+        <h2 class="mt">Sua primeira consulta é por nossa conta</h2>
+        <p class="muted mt" style="margin-bottom:16px">Confirme seus dados para liberar. O CPF serve só para garantir uma consulta grátis por pessoa.</p>
+        <div id="gratis-alert" style="text-align:left"></div>
+        <div style="text-align:left">
+          <div class="field"><label>CPF</label><input id="g-cpf" inputmode="numeric" placeholder="Somente números" autocomplete="off" /></div>
+          <div class="field"><label>WhatsApp (com DDD)</label><input id="g-whats" inputmode="numeric" placeholder="Ex.: 21999998888" autocomplete="off" /></div>
+        </div>
+        <button class="btn" id="btnGratisConfirmar">Ver minha consulta grátis</button>
+        <button class="btn hidden" id="btnGratisPagar">Seguir com consulta paga</button>
+        <button class="btn ghost mt" data-go="view-app">Voltar</button>
+      </div>
+    </section>
+
     <!-- ===================== PAGAMENTO ===================== -->
     <section class="view hidden" id="view-payment">
       <div class="card center">
-        <h2>Pagamento via PIX</h2>
-        <div class="price mt" id="pay-price">R$ 39,99</div>
+        <h2 id="pay-title">Pagamento via PIX</h2>
+        <div class="price mt" id="pay-price">…</div>
 
         <!-- Passo 1: dados do cliente -->
         <div id="pix-form" class="mt-lg" style="text-align:left">
@@ -254,7 +271,11 @@
         <div class="reading-meta" id="result-meta"></div>
         <div class="reading" id="result-text"></div>
         <div class="disclaimer" id="result-disclaimer"></div>
-        <button class="btn mt-lg" id="btnBaixarPdf">📄 Baixar relatório premium</button>
+        <div class="hidden mt-lg" id="pdf-upsell" style="text-align:center;padding:14px;border:1px solid rgba(201,162,75,0.4);border-radius:12px">
+          <strong style="color:var(--gold-2)">Leve sua leitura completa com você</strong>
+          <p class="muted" style="margin:6px 0 0">Relatório premium em PDF, com o seu mapa visual e a interpretação completa, para guardar e compartilhar.</p>
+        </div>
+        <button class="btn mt" id="btnBaixarPdf">📄 Baixar relatório premium</button>
         <div class="btn-row mt">
           <button class="btn ghost" data-go="view-app">Nova consulta</button>
           <button class="btn ghost" data-go="view-history">Histórico</button>
@@ -283,6 +304,11 @@
 
   </div>
 
-  <script src="app.js"></script>
+  <div id="loading-overlay" class="hidden" style="position:fixed;inset:0;z-index:9998;background:rgba(5,8,25,.85);display:flex;align-items:center;justify-content:center;flex-direction:column;gap:14px;text-align:center;padding:20px">
+    <div class="spinner"></div>
+    <p style="font-family:'Cinzel',serif;color:var(--gold-2)">Consultando o universo…</p>
+    <p class="muted" style="font-size:.9rem">Isso leva alguns segundos.</p>
+  </div>
+  <script src="/app.js"></script>
 </body>
 </html>

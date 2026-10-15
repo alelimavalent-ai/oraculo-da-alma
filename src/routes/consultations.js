@@ -7,6 +7,7 @@ const { authRequired, adminRequired } = require('../middleware/auth');
 // Usuário logado
 router.post('/', authRequired, ctrl.criarConsulta);          // criar consulta (gera pagamento pendente)
 router.get('/', authRequired, ctrl.listarConsultas);         // histórico "Minhas Consultas"
+router.get('/gratis/status', authRequired, ctrl.statusGratis);   // tem consulta grátis disponível?
 router.get('/:id/pdf/abrir', ctrl.abrirPdfPorLink);        // página de entrega do PDF (Safari/Chrome)
 router.get('/:id/pdf/:arquivo', ctrl.arquivoPdfPorLink);    // arquivo PDF por link temporário
 router.get('/:id', authRequired, ctrl.detalheConsulta);      // detalhe (se liberada)

@@ -39,6 +39,13 @@ app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', app: 'Oráculo da Alma', slogan: 'O universo fala com você.' });
 });
 
+// Preço atual da consulta (público, para o site mostrar o valor certo)
+app.get('/api/preco', (req, res) => {
+  const row = db.prepare("SELECT value FROM settings WHERE key = 'consultation_price_cents'").get();
+  const cents = row ? parseInt(row.value, 10) : 3999;
+  res.json({ cents, brl: 'R$ ' + (cents / 100).toFixed(2).replace('.', ',') });
+});
+
 // Autenticação
 app.use('/api/auth', authRoutes);
 
