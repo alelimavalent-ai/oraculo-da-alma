@@ -8,6 +8,7 @@ const ctrl = require('../controllers/adminController');
 router.get('/consultations', authRequired, adminRequired, ctrl.listConsultations);
 router.get('/gratis', authRequired, adminRequired, ctrl.gratisPagantes);
 router.get('/users', authRequired, adminRequired, ctrl.listUsers);
+router.post('/users/:id/reset-password', authRequired, adminRequired, ctrl.resetarSenhaUsuario);
 router.get('/settings', authRequired, adminRequired, ctrl.getSettings);
 router.get('/financeiro', authRequired, adminRequired, ctrl.financeiro);
 router.put('/settings', authRequired, adminRequired, ctrl.updateSettings);

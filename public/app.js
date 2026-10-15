@@ -126,6 +126,9 @@ $('#btnForgot').addEventListener('click', async () => {
     let msg = data.message;
     if (data.dev_reset_token) msg += `<br><br><strong>Código (modo teste):</strong> ${data.dev_reset_token}`;
     alertBox('forgot-alert', 'ok', msg);
+    // Leva direto para a tela de digitar o código, com o e-mail já preenchido.
+    $('#reset-email').value = $('#forgot-email').value.trim();
+    setTimeout(() => { show('view-reset'); alertBox('reset-alert', 'ok', msg); }, 1800);
   } catch (err) {
     alertBox('forgot-alert', 'err', err.message);
   }
@@ -136,7 +139,7 @@ $('#btnReset').addEventListener('click', async () => {
   try {
     const data = await api('/api/auth/reset-password', {
       method: 'POST', auth: false,
-      body: { token: $('#reset-token').value.trim(), new_password: $('#reset-password').value },
+      body: { email: $('#reset-email').value.trim(), token: $('#reset-token').value.trim(), new_password: $('#reset-password').value },
     });
     alertBox('reset-alert', 'ok', data.message + ' Redirecionando…');
     setTimeout(() => show('view-login'), 1500);

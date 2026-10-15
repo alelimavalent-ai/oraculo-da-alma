@@ -141,7 +141,9 @@
       <div class="card">
         <h2>Definir nova senha</h2>
         <div id="reset-alert" class="mt"></div>
-        <div class="field mt"><label>Código recebido</label><input id="reset-token" /></div>
+        <p class="muted mt" style="margin-bottom:6px">Digite o código de 6 números que enviamos para o seu e-mail.</p>
+        <div class="field mt"><label>E-mail</label><input id="reset-email" type="email" autocapitalize="none" autocorrect="off" /></div>
+        <div class="field"><label>Código recebido</label><input id="reset-token" inputmode="numeric" maxlength="6" placeholder="000000" autocomplete="one-time-code" /></div>
         <div class="field"><label>Nova senha</label><input id="reset-password" type="password" /></div>
         <button class="btn" id="btnReset">Redefinir senha</button>
         <p class="center mt"><button class="linkish" data-go="view-login">Voltar ao login</button></p>

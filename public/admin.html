@@ -276,10 +276,29 @@
       try {
         const d = await api('/api/admin/users');
         const rows = d.usuarios.map((u) => `
-          <tr><td>${esc(u.full_name)}</td><td>${esc(u.email)}</td><td>${esc(u.role)}</td><td>${esc(u.status)}</td>
-          <td>${new Date(u.created_at + 'Z').toLocaleDateString('pt-BR')}</td></tr>`).join('');
-        $('#usuarios-box').innerHTML = `<table><thead><tr><th>Nome</th><th>E-mail</th><th>Papel</th><th>Status</th><th>Desde</th></tr></thead><tbody>${rows}</tbody></table>`;
+          <tr><td>${esc(u.full_name)}</td><td>${esc(u.email)}<br>${linkWhats(u.phone)}</td><td>${esc(u.role)}</td><td>${esc(u.status)}</td>
+          <td>${new Date(u.created_at + 'Z').toLocaleDateString('pt-BR')}</td>
+          <td>${u.role === 'superadmin' ? '<span class="muted">—</span>' : `<button class="btn ghost" style="width:auto;padding:6px 10px;font-size:0.75rem" data-reset="${u.id}" data-nome="${esc(u.full_name)}">Redefinir senha</button>`}</td></tr>`).join('');
+        $('#usuarios-box').innerHTML = `<div id="reset-result"></div><table><thead><tr><th>Nome</th><th>E-mail / WhatsApp</th><th>Papel</th><th>Status</th><th>Desde</th><th></th></tr></thead><tbody>${rows}</tbody></table>`;
+        document.querySelectorAll('[data-reset]').forEach((b) => b.addEventListener('click', () => redefinirSenha(b.dataset.reset, b.dataset.nome)));
       } catch (e) { $('#usuarios-box').innerHTML = `<div class="alert err">${e.message}</div>`; }
+    }
+
+    async function redefinirSenha(id, nome) {
+      if (!confirm('Gerar uma senha provisória para ' + nome + '? A senha atual dela deixa de funcionar.')) return;
+      try {
+        const r = await api('/api/admin/users/' + id + '/reset-password', { method: 'POST' });
+        const primeiro = (r.nome || '').split(' ')[0];
+        const msg = `Olá, ${primeiro}! Aqui é do Oráculo da Alma ✨ Sua nova senha de acesso é: ${r.senha}\nEntre em https://oraculo-da-alma-f8fh.onrender.com com o e-mail ${r.email}.`;
+        const d = String(r.whatsapp || '').replace(/\D/g, '');
+        const num = d ? (d.length <= 11 ? '55' + d : d) : '';
+        $('#reset-result').innerHTML = `<div class="alert ok" style="margin-bottom:12px">
+          Nova senha de <b>${esc(r.nome)}</b>: <b style="font-size:1.2rem;letter-spacing:2px">${esc(r.senha)}</b><br>
+          ${num ? `<a class="btn" style="margin-top:10px" target="_blank" rel="noopener" href="https://wa.me/${num}?text=${encodeURIComponent(msg)}">Enviar pelo WhatsApp</a>`
+                : '<span class="muted">Este cliente não tem WhatsApp cadastrado — copie a senha e envie para ele.</span>'}
+        </div>`;
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      } catch (e) { alert(e.message); }
     }
 
     async function carregarConfig() {

@@ -167,6 +167,7 @@ function runMigrations() {
   ensureColumn('consultations', 'is_free', 'INTEGER NOT NULL DEFAULT 0');
   ensureColumn('consultations', 'pdf_paid', 'INTEGER NOT NULL DEFAULT 0');
   ensureColumn('users', 'cpf', 'TEXT');
+  ensureColumn('users', 'reset_attempts', 'INTEGER NOT NULL DEFAULT 0');
   sqlDb.run(`CREATE TABLE IF NOT EXISTS gratis_cpf (
     cpf TEXT PRIMARY KEY,
     user_id INTEGER,

@@ -4,6 +4,7 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const db = require('../config/database');
 const config = require('../config/env');
+const { enviarEmail } = require('../services/email');
 
 // ---------- Helpers ----------
 
@@ -154,7 +155,7 @@ function changePassword(req, res) {
 // OBS: o envio por e-mail entra numa próxima etapa (precisa de SMTP).
 // Por enquanto o token é retornado/logado para você testar o fluxo.
 
-function forgotPassword(req, res) {
+async function forgotPassword(req, res) {
   const { email } = req.body || {};
   if (!email) return res.status(400).json({ error: 'Informe o e-mail.' });
 
@@ -162,51 +163,62 @@ function forgotPassword(req, res) {
 
   // Resposta sempre genérica para não revelar se o e-mail existe.
   const genericMessage = {
-    message: 'Se este e-mail estiver cadastrado, enviaremos as instruções de redefinição.',
+    message: 'Se este e-mail estiver cadastrado, enviamos um código de 6 números. Confira também a caixa de spam.',
   };
-
   if (!user) return res.json(genericMessage);
 
-  const token = crypto.randomBytes(32).toString('hex');
-  const expires = new Date(Date.now() + 60 * 60 * 1000).toISOString(); // +1h
+  // Código de 6 números, válido por 1 hora, no máximo 5 tentativas.
+  const codigo = String(crypto.randomInt(0, 1000000)).padStart(6, '0');
+  const expires = new Date(Date.now() + 60 * 60 * 1000).toISOString();
+  db.prepare('UPDATE users SET reset_token = ?, reset_expires_at = ?, reset_attempts = 0 WHERE id = ?')
+    .run(bcrypt.hashSync(codigo, 8), expires, user.id);
 
-  db.prepare('UPDATE users SET reset_token = ?, reset_expires_at = ? WHERE id = ?')
-    .run(token, expires, user.id);
-
-  // TODO (próxima etapa): enviar este token por e-mail (nodemailer/SMTP).
-  console.log(`[RECUPERAÇÃO DE SENHA] Token para ${user.email}: ${token}`);
+  const primeiroNome = (user.full_name || '').split(' ')[0] || '';
+  const r = await enviarEmail({
+    para: user.email,
+    nome: user.full_name,
+    assunto: `Seu código: ${codigo} — Oráculo da Alma`,
+    html: `<div style="font-family:Georgia,serif;background:#0c1530;color:#f3ead2;padding:28px;border-radius:14px;max-width:460px;margin:auto;border:1px solid #c9a24b">
+      <h2 style="color:#e0c478;margin-top:0">Oráculo da Alma</h2>
+      <p>Olá${primeiroNome ? ', ' + primeiroNome : ''}! Use o código abaixo para criar uma nova senha:</p>
+      <p style="font-size:34px;letter-spacing:8px;color:#e0c478;text-align:center;margin:22px 0"><b>${codigo}</b></p>
+      <p style="font-size:13px;opacity:.8">O código vale por 1 hora. Se não foi você quem pediu, ignore este e-mail.</p>
+    </div>`,
+  });
+  if (!r.ok) console.log(`[RECUPERAÇÃO DE SENHA] E-mail não enviado para ${user.email} (${r.motivo}).`);
 
   const response = { ...genericMessage };
-  // Em ambiente de desenvolvimento, devolve o token para facilitar testes.
-  if (process.env.NODE_ENV !== 'production') {
-    response.dev_reset_token = token;
-  }
+  if (process.env.NODE_ENV !== 'production') response.dev_reset_token = codigo;
   return res.json(response);
 }
 
-// ---------- Recuperação de senha: confirmar com token ----------
+// ---------- Recuperação de senha: confirmar com e-mail + código ----------
 
 function resetPassword(req, res) {
-  const { token, new_password } = req.body || {};
-  if (!token || !new_password) {
-    return res.status(400).json({ error: 'Informe o token e a nova senha.' });
+  const { email, token, new_password } = req.body || {};
+  if (!email || !token || !new_password) {
+    return res.status(400).json({ error: 'Informe o e-mail, o código e a nova senha.' });
   }
   if (String(new_password).length < 6) {
     return res.status(400).json({ error: 'A nova senha deve ter pelo menos 6 caracteres.' });
   }
-
-  const user = db.prepare('SELECT * FROM users WHERE reset_token = ?').get(token);
-  if (!user) {
-    return res.status(400).json({ error: 'Token inválido.' });
+  const user = db.prepare('SELECT * FROM users WHERE email = ?').get(String(email).toLowerCase().trim());
+  const invalido = { error: 'Código inválido ou expirado. Peça um novo código.' };
+  if (!user || !user.reset_token) return res.status(400).json(invalido);
+  if (!user.reset_expires_at || new Date(user.reset_expires_at) < new Date()) return res.status(400).json(invalido);
+  if ((user.reset_attempts || 0) >= 5) {
+    return res.status(429).json({ error: 'Muitas tentativas. Peça um novo código.' });
   }
-  if (!user.reset_expires_at || new Date(user.reset_expires_at) < new Date()) {
-    return res.status(400).json({ error: 'Token expirado. Solicite a recuperação novamente.' });
+  const codigo = String(token).replace(/\D/g, '');
+  if (!bcrypt.compareSync(codigo, user.reset_token)) {
+    db.prepare('UPDATE users SET reset_attempts = COALESCE(reset_attempts, 0) + 1 WHERE id = ?').run(user.id);
+    return res.status(400).json(invalido);
   }
 
   const newHash = bcrypt.hashSync(String(new_password), 10);
   db.prepare(`
     UPDATE users
-    SET password_hash = ?, reset_token = NULL, reset_expires_at = NULL, updated_at = datetime('now')
+    SET password_hash = ?, reset_token = NULL, reset_expires_at = NULL, reset_attempts = 0, updated_at = datetime('now')
     WHERE id = ?
   `).run(newHash, user.id);
 

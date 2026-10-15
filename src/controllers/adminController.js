@@ -4,6 +4,8 @@ const config = require('../config/env');
 const ia = require('../services/openai');
 const { tirarTarot } = require('../services/oraculos');
 const { mascararCpf } = require('../utils/cpf');
+const crypto = require('crypto');
+const bcrypt = require('bcryptjs');
 
 // Todas as consultas, com dados do usuário (nome, e-mail, data, pergunta, resposta, status).
 function listConsultations(req, res) {
@@ -20,7 +22,7 @@ function listConsultations(req, res) {
 // Lista de usuários.
 function listUsers(req, res) {
   const rows = db.prepare(`
-    SELECT id, full_name, email, role, status, created_at
+    SELECT id, full_name, email, phone, role, status, created_at
     FROM users ORDER BY created_at DESC
   `).all();
   return res.json({ usuarios: rows });
@@ -160,7 +162,22 @@ function gratisPagantes(req, res) {
   });
 }
 
+// Gera uma senha provisória para o cliente (o dono envia pelo WhatsApp).
+function resetarSenhaUsuario(req, res) {
+  const id = Number(req.params.id);
+  const u = db.prepare('SELECT id, full_name, email, phone, role FROM users WHERE id = ?').get(id);
+  if (!u) return res.status(404).json({ error: 'Usuário não encontrado.' });
+  if (u.role === 'superadmin') return res.status(403).json({ error: 'A senha do Super Admin é definida no Render.' });
+  const letras = 'abcdefghjkmnpqrstuvwxyz23456789'; // sem O/0, l/1/I
+  let senha = '';
+  for (let i = 0; i < 8; i++) senha += letras[crypto.randomInt(0, letras.length)];
+  db.prepare(`UPDATE users SET password_hash = ?, reset_token = NULL, reset_expires_at = NULL, updated_at = datetime('now') WHERE id = ?`)
+    .run(bcrypt.hashSync(senha, 10), id);
+  return res.json({ senha, nome: u.full_name, email: u.email, whatsapp: u.phone });
+}
+
 module.exports = {
+  resetarSenhaUsuario,
   gratisPagantes,
   listConsultations,
   listUsers,
