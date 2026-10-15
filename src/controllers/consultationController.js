@@ -6,6 +6,8 @@ const db = require('../config/database');
 const { gerarPDF } = require('../services/pdf');
 const { gerarConteudo } = require('../services/geracao');
 const ia = require('../services/openai');
+const jwt = require('jsonwebtoken');
+const config = require('../config/env');
 
 const TIPOS_VALIDOS = ['mapa_astral', 'astrologia_vedica', 'tarot', 'buzios'];
 
@@ -153,34 +155,74 @@ function detalheConsulta(req, res) {
 }
 
 // ---------- Gerar e baixar o PDF premium ----------
-async function baixarPdf(req, res) {
-  const id = Number(req.params.id);
-  const admin = isAdmin(req.user.role);
-  const row = admin
+// Gera o PDF de uma consulta liberada e salva uma cópia no histórico.
+async function montarPdf(row) {
+  const user = db.prepare('SELECT full_name, email FROM users WHERE id = ?').get(row.user_id);
+  const buffer = await gerarPDF(row, user);
+  const dir = path.resolve(process.cwd(), 'data', 'pdfs');
+  fs.mkdirSync(dir, { recursive: true });
+  const file = path.join(dir, `consulta_${row.id}.pdf`);
+  fs.writeFileSync(file, buffer);
+  db.prepare('UPDATE consultations SET pdf_path = ? WHERE id = ?').run(file, row.id);
+  return buffer;
+}
+
+function buscarConsultaDoUsuario(req, id) {
+  return isAdmin(req.user.role)
     ? db.prepare('SELECT * FROM consultations WHERE id = ?').get(id)
     : db.prepare('SELECT * FROM consultations WHERE id = ? AND user_id = ?').get(id, req.user.id);
+}
 
+async function baixarPdf(req, res) {
+  const id = Number(req.params.id);
+  const row = buscarConsultaDoUsuario(req, id);
   if (!row) return res.status(404).json({ error: 'Consulta não encontrada.' });
   if (row.status !== 'completed') {
     return res.status(402).json({ error: 'Consulta ainda não liberada. Conclua o pagamento.' });
   }
-
-  const user = db.prepare('SELECT full_name, email FROM users WHERE id = ?').get(row.user_id);
   try {
-    const buffer = await gerarPDF(row, user);
-
-    // Salva uma cópia no histórico (data/pdfs) e registra o caminho.
-    const dir = path.resolve(process.cwd(), 'data', 'pdfs');
-    fs.mkdirSync(dir, { recursive: true });
-    const file = path.join(dir, `consulta_${id}.pdf`);
-    fs.writeFileSync(file, buffer);
-    db.prepare('UPDATE consultations SET pdf_path = ? WHERE id = ?').run(file, id);
-
+    const buffer = await montarPdf(row);
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `attachment; filename="oraculo-da-alma-${id}.pdf"`);
     return res.send(buffer);
   } catch (err) {
     return res.status(500).json({ error: 'Erro ao gerar o PDF: ' + err.message });
+  }
+}
+
+// Link temporário (2 horas) para abrir o PDF fora do Instagram/Facebook,
+// onde o navegador interno não deixa baixar arquivos.
+function linkPdf(req, res) {
+  const id = Number(req.params.id);
+  const row = buscarConsultaDoUsuario(req, id);
+  if (!row) return res.status(404).json({ error: 'Consulta não encontrada.' });
+  if (row.status !== 'completed') {
+    return res.status(402).json({ error: 'Consulta ainda não liberada. Conclua o pagamento.' });
+  }
+  const t = jwt.sign({ pdf: id }, config.jwtSecret, { expiresIn: '2h' });
+  const host = req.get('x-forwarded-host') || req.get('host');
+  const url = `https://${host}/api/consultations/${id}/pdf/abrir?t=${encodeURIComponent(t)}`;
+  return res.json({ url });
+}
+
+// Abre o PDF pelo link temporário (sem login), para salvar/compartilhar no Safari ou Chrome.
+async function abrirPdfPorLink(req, res) {
+  const id = Number(req.params.id);
+  try {
+    const payload = jwt.verify(String(req.query.t || ''), config.jwtSecret);
+    if (payload.pdf !== id) throw new Error('link inválido');
+  } catch (e) {
+    return res.status(401).send('Link expirado. Volte ao Oráculo da Alma e toque em "Baixar relatório premium" de novo.');
+  }
+  const row = db.prepare('SELECT * FROM consultations WHERE id = ?').get(id);
+  if (!row || row.status !== 'completed') return res.status(404).send('Relatório não encontrado.');
+  try {
+    const buffer = await montarPdf(row);
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `inline; filename="oraculo-da-alma-${id}.pdf"`);
+    return res.send(buffer);
+  } catch (err) {
+    return res.status(500).send('Erro ao gerar o PDF: ' + err.message);
   }
 }
 
@@ -190,4 +232,6 @@ module.exports = {
   listarConsultas,
   detalheConsulta,
   baixarPdf,
+  linkPdf,
+  abrirPdfPorLink,
 };

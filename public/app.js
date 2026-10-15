@@ -398,12 +398,56 @@ function mostrarResultado(data) {
   show('view-result');
 }
 
+// Navegador interno do Instagram/Facebook/TikTok não deixa baixar arquivos.
+function emNavegadorInterno() {
+  return /Instagram|FBAN|FBAV|FB_IAB|FBIOS|Messenger|musical_ly|BytedanceWebview|TikTok|Line\//i.test(navigator.userAgent || '');
+}
+function ehIOS() { return /iPhone|iPad|iPod/i.test(navigator.userAgent || ''); }
+
+function mostrarAvisoPdf(url) {
+  const antigo = document.getElementById('pdf-aviso');
+  if (antigo) antigo.remove();
+  let abrirFora = url;
+  if (ehIOS()) abrirFora = url.replace(/^https:\/\//, 'x-safari-https://');
+  else if (/Android/i.test(navigator.userAgent || '')) {
+    abrirFora = 'intent://' + url.replace(/^https:\/\//, '') + '#Intent;scheme=https;package=com.android.chrome;end';
+  }
+  const nav = ehIOS() ? 'Safari' : 'Chrome';
+  const box = document.createElement('div');
+  box.id = 'pdf-aviso';
+  box.style.cssText = 'position:fixed;inset:0;z-index:9999;background:rgba(5,8,25,.85);display:flex;align-items:center;justify-content:center;padding:16px';
+  box.innerHTML = `
+    <div class="card" style="max-width:380px;width:100%;text-align:center">
+      <h3 style="margin-top:0">📄 Seu relatório está pronto</h3>
+      <p>O navegador do Instagram não permite salvar arquivos. Toque abaixo para abrir o relatório no ${nav} e salvar ou compartilhar.</p>
+      <a class="btn mt" id="pdf-abrir-fora" href="${abrirFora}">Abrir no ${nav}</a>
+      <button class="btn ghost mt" id="pdf-copiar">Copiar link do relatório</button>
+      <button class="btn ghost mt" id="pdf-fechar">Fechar</button>
+      <p style="font-size:.8rem;opacity:.7">O link vale por 2 horas.</p>
+    </div>`;
+  document.body.appendChild(box);
+  document.getElementById('pdf-fechar').onclick = () => box.remove();
+  document.getElementById('pdf-copiar').onclick = async () => {
+    try { await navigator.clipboard.writeText(url); alert('Link copiado! Cole no ' + nav + '.'); }
+    catch (e) { prompt('Copie o link abaixo e cole no ' + nav + ':', url); }
+  };
+}
+
 async function baixarPDF(id) {
   if (!id) return;
   const btn = document.getElementById('btnBaixarPdf');
   const txt = btn ? btn.textContent : '';
   if (btn) { btn.disabled = true; btn.textContent = 'Gerando PDF…'; }
   try {
+    if (emNavegadorInterno()) {
+      const r = await fetch('/api/consultations/' + id + '/pdf-link', {
+        headers: { Authorization: 'Bearer ' + token() },
+      });
+      const d = await r.json().catch(() => ({}));
+      if (!r.ok || !d.url) throw new Error(d.error || 'Erro ao gerar o link do PDF.');
+      mostrarAvisoPdf(d.url);
+      return;
+    }
     const res = await fetch('/api/consultations/' + id + '/pdf', {
       headers: { Authorization: 'Bearer ' + token() },
     });
@@ -416,7 +460,7 @@ async function baixarPDF(id) {
     const a = document.createElement('a');
     a.href = url; a.download = 'oraculo-da-alma-' + id + '.pdf';
     document.body.appendChild(a); a.click(); a.remove();
-    URL.revokeObjectURL(url);
+    setTimeout(() => URL.revokeObjectURL(url), 10000);
   } catch (err) {
     alert(err.message);
   } finally {
