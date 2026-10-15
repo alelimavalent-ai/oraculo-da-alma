@@ -252,28 +252,34 @@ function abrirPdfPorLink(req, res) {
 <body><div class="card">
   <div style="font-size:2.4rem">🌙</div>
   <h1>Seu relatório está pronto</h1>
-  <p>Toque no botão abaixo para salvar o seu relatório premium no celular.</p>
+  <p id="txt">Toque no botão abaixo para salvar o seu relatório premium no celular.</p>
   <a class="btn ouro" id="baixar" href="${arq}&baixar=1" download="${NOME_ARQUIVO}">⬇️ Baixar meu relatório</a>
-  <button class="btn vazado" id="enviar" type="button">📲 Enviar pelo WhatsApp ou salvar</button>
   <a class="btn vazado" href="${arq}">👁️ Ver relatório</a>
-  <div class="ok" id="ok">No iPhone, o arquivo fica em <b>Arquivos → Downloads</b>.</div>
+  <div class="ok" id="ok">No menu que abrir, toque em <b>Salvar em Arquivos</b> (ou envie pelo WhatsApp).</div>
   <small>Oráculo da Alma · o link vale por 2 horas</small>
 </div>
 <script>
-  document.getElementById('baixar').addEventListener('click', function(){
-    if (/iPhone|iPad|iPod/i.test(navigator.userAgent)) document.getElementById('ok').style.display='block';
-  });
-  document.getElementById('enviar').addEventListener('click', async function(){
-    try {
-      var r = await fetch(${JSON.stringify(arq)});
-      var blob = await r.blob();
-      var f = new File([blob], ${JSON.stringify(NOME_ARQUIVO)}, {type:'application/pdf'});
-      if (navigator.canShare && navigator.canShare({files:[f]})) {
-        await navigator.share({files:[f], title:'Meu relatório — Oráculo da Alma'});
-        return;
-      }
-    } catch (e) { if (e && e.name === 'AbortError') return; }
-    window.location.href = ${JSON.stringify(arq)};
+  var ehIOS = /iPhone|iPad|iPod/i.test(navigator.userAgent) ||
+    (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  var arquivo = null;
+  // Já deixa o PDF carregado, para o menu do iPhone abrir na hora do toque.
+  if (ehIOS && navigator.share) {
+    fetch(${JSON.stringify(arq)}).then(function(r){ return r.blob(); }).then(function(b){
+      var f = new File([b], ${JSON.stringify(NOME_ARQUIVO)}, {type:'application/pdf'});
+      if (!navigator.canShare || navigator.canShare({files:[f]})) arquivo = f;
+    }).catch(function(){});
+  }
+  document.getElementById('baixar').addEventListener('click', function(ev){
+    if (!ehIOS) return; // Android/PC: download normal
+    if (arquivo) {
+      ev.preventDefault();
+      document.getElementById('ok').style.display = 'block';
+      navigator.share({ files: [arquivo], title: 'Meu relatório — Oráculo da Alma' }).catch(function(){});
+    } else {
+      // PDF ainda carregando: abre o PDF e mostra como salvar.
+      document.getElementById('ok').innerHTML = 'Toque no ícone de compartilhar do Safari e depois em <b>Salvar em Arquivos</b>.';
+      document.getElementById('ok').style.display = 'block';
+    }
   });
 </script>
 </body></html>`);
