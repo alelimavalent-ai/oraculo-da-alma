@@ -205,21 +205,89 @@ function linkPdf(req, res) {
   return res.json({ url });
 }
 
-// Abre o PDF pelo link temporário (sem login), para salvar/compartilhar no Safari ou Chrome.
-async function abrirPdfPorLink(req, res) {
+// Valida o link temporário e devolve a consulta (ou null).
+function consultaPorLink(req) {
   const id = Number(req.params.id);
   try {
     const payload = jwt.verify(String(req.query.t || ''), config.jwtSecret);
-    if (payload.pdf !== id) throw new Error('link inválido');
+    if (payload.pdf !== id) return null;
   } catch (e) {
-    return res.status(401).send('Link expirado. Volte ao Oráculo da Alma e toque em "Baixar relatório premium" de novo.');
+    return null;
   }
   const row = db.prepare('SELECT * FROM consultations WHERE id = ?').get(id);
-  if (!row || row.status !== 'completed') return res.status(404).send('Relatório não encontrado.');
+  return row && row.status === 'completed' ? row : null;
+}
+
+const NOME_ARQUIVO = 'Oraculo-da-Alma-Relatorio.pdf';
+const MSG_EXPIRADO = 'Link expirado. Volte ao Oráculo da Alma e toque em "Baixar relatório premium" de novo.';
+
+// Página de entrega (abre no Safari/Chrome) com botão grande "Baixar meu relatório".
+function abrirPdfPorLink(req, res) {
+  const row = consultaPorLink(req);
+  if (!row) return res.status(401).send(MSG_EXPIRADO);
+  const t = encodeURIComponent(String(req.query.t));
+  const arq = `/api/consultations/${row.id}/pdf/${NOME_ARQUIVO}?t=${t}`;
+  res.setHeader('Content-Type', 'text/html; charset=utf-8');
+  return res.send(`<!doctype html>
+<html lang="pt-BR"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Seu relatório — Oráculo da Alma</title>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600&family=Spectral:wght@400;600&display=swap" rel="stylesheet">
+<style>
+  *{box-sizing:border-box}
+  body{margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px;
+    font-family:'Spectral',Georgia,serif;color:#f3ead2;
+    background:radial-gradient(circle at 50% 0%,#1a2752,#080f24 70%)}
+  .card{max-width:420px;width:100%;text-align:center;padding:32px 22px;border:1px solid #c9a24b;
+    border-radius:18px;background:rgba(12,21,48,.92);box-shadow:0 0 0 4px rgba(201,162,75,.12)}
+  h1{font-family:'Cinzel',serif;color:#e0c478;font-size:1.35rem;letter-spacing:.06em;margin:8px 0 6px}
+  p{line-height:1.5;margin:8px 0 22px}
+  .btn{display:block;width:100%;padding:18px;border-radius:12px;font-family:'Cinzel',serif;font-size:1.05rem;
+    letter-spacing:.05em;text-decoration:none;border:1px solid #c9a24b;margin-top:12px;cursor:pointer}
+  .ouro{background:linear-gradient(180deg,#e0c478,#c9a24b);color:#1a1405;font-weight:600}
+  .vazado{background:transparent;color:#e0c478}
+  small{display:block;margin-top:18px;opacity:.7;font-size:.85rem}
+  .ok{color:#9fe0a8;margin-top:14px;display:none}
+</style></head>
+<body><div class="card">
+  <div style="font-size:2.4rem">🌙</div>
+  <h1>Seu relatório está pronto</h1>
+  <p>Toque no botão abaixo para salvar o seu relatório premium no celular.</p>
+  <a class="btn ouro" id="baixar" href="${arq}&baixar=1" download="${NOME_ARQUIVO}">⬇️ Baixar meu relatório</a>
+  <button class="btn vazado" id="enviar" type="button">📲 Enviar pelo WhatsApp ou salvar</button>
+  <a class="btn vazado" href="${arq}">👁️ Ver relatório</a>
+  <div class="ok" id="ok">No iPhone, o arquivo fica em <b>Arquivos → Downloads</b>.</div>
+  <small>Oráculo da Alma · o link vale por 2 horas</small>
+</div>
+<script>
+  document.getElementById('baixar').addEventListener('click', function(){
+    if (/iPhone|iPad|iPod/i.test(navigator.userAgent)) document.getElementById('ok').style.display='block';
+  });
+  document.getElementById('enviar').addEventListener('click', async function(){
+    try {
+      var r = await fetch(${JSON.stringify(arq)});
+      var blob = await r.blob();
+      var f = new File([blob], ${JSON.stringify(NOME_ARQUIVO)}, {type:'application/pdf'});
+      if (navigator.canShare && navigator.canShare({files:[f]})) {
+        await navigator.share({files:[f], title:'Meu relatório — Oráculo da Alma'});
+        return;
+      }
+    } catch (e) { if (e && e.name === 'AbortError') return; }
+    window.location.href = ${JSON.stringify(arq)};
+  });
+</script>
+</body></html>`);
+}
+
+// Entrega o arquivo PDF pelo link temporário. ?baixar=1 força o download.
+async function arquivoPdfPorLink(req, res) {
+  const row = consultaPorLink(req);
+  if (!row) return res.status(401).send(MSG_EXPIRADO);
   try {
     const buffer = await montarPdf(row);
     res.setHeader('Content-Type', 'application/pdf');
-    res.setHeader('Content-Disposition', `inline; filename="oraculo-da-alma-${id}.pdf"`);
+    const modo = req.query.baixar ? 'attachment' : 'inline';
+    res.setHeader('Content-Disposition', `${modo}; filename="${NOME_ARQUIVO}"`);
     return res.send(buffer);
   } catch (err) {
     return res.status(500).send('Erro ao gerar o PDF: ' + err.message);
@@ -234,4 +302,5 @@ module.exports = {
   baixarPdf,
   linkPdf,
   abrirPdfPorLink,
+  arquivoPdfPorLink,
 };
