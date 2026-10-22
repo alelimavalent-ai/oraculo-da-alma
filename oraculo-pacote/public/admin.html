@@ -1,0 +1,357 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Painel Admin — Oráculo da Alma</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;600;700&family=Spectral:ital,wght@0,400;0,600;1,400&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/styles.css" />
+  <style>
+    .admin-shell { max-width: 920px; }
+    .tabs { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 18px; }
+    .tab { padding: 8px 14px; border-radius: 20px; border: 1px solid rgba(201,162,75,0.4); background: transparent; color: var(--gold-2); cursor: pointer; font-family: 'Cinzel', serif; font-size: 0.78rem; letter-spacing: 0.05em; }
+    .tab.active { background: linear-gradient(180deg, var(--gold-2), var(--gold)); color: #2a1f08; }
+    table { width: 100%; border-collapse: collapse; font-size: 0.86rem; }
+    th, td { text-align: left; padding: 9px 8px; border-bottom: 1px solid rgba(201,162,75,0.15); vertical-align: top; }
+    th { font-family: 'Cinzel', serif; color: var(--gold-2); font-size: 0.74rem; letter-spacing: 0.05em; }
+    .status-pill { font-size: 0.7rem; padding: 2px 8px; border-radius: 12px; white-space: nowrap; }
+    .s-pendente { background: rgba(201,162,75,0.16); color: var(--gold-2); border:1px solid rgba(201,162,75,0.4); }
+    .s-pago { background: rgba(143,208,168,0.18); color: #b8e6c9; border:1px solid rgba(143,208,168,0.4); }
+    .s-gratis_admin { background: rgba(107,78,142,0.3); color: #d8c7ef; border:1px solid rgba(107,78,142,0.6); }
+    .resp-cell { max-width: 280px; }
+    .resp-cell details summary { cursor: pointer; color: var(--gold-2); }
+    .resp-cell .full { white-space: pre-wrap; margin-top: 8px; font-size: 0.82rem; color: var(--cream-dim); }
+    .ok-dot { color: var(--ok); } .err-dot { color: var(--danger); }
+    .panel { overflow-x: auto; }
+  </style>
+</head>
+<body>
+  <canvas id="starfield" aria-hidden="true"></canvas>
+  <div class="shell admin-shell">
+    <div class="topbar">
+      <span class="brand-name" style="font-size:0.95rem">Oráculo da Alma · Admin</span>
+      <div style="display:flex;gap:14px;align-items:center">
+        <a href="/" class="linkish">App</a>
+        <button class="linkish" id="btnSair">Sair</button>
+      </div>
+    </div>
+
+    <div id="gate" class="card hidden">
+      <h2>Acesso restrito</h2>
+      <p class="muted mt" id="gate-msg">Faça login como administrador no app primeiro.</p>
+      <a href="/admin/login" class="btn mt">Ir para o login admin</a>
+    </div>
+
+    <div id="dash" class="hidden">
+      <div class="tabs">
+        <button class="tab active" data-tab="ia">IA / OpenAI</button>
+        <button class="tab" data-tab="gratis">Grátis × Pagantes</button>
+        <button class="tab" data-tab="consultas">Consultas</button>
+        <button class="tab" data-tab="financeiro">Financeiro</button>
+        <button class="tab" data-tab="usuarios">Usuários</button>
+        <button class="tab" data-tab="config">Configurações</button>
+      </div>
+
+      <!-- IA -->
+      <section class="tabview card" id="view-ia">
+        <h2>Status da OpenAI</h2>
+        <div id="ia-status" class="mt"><div class="spinner"></div></div>
+        <button class="btn ghost mt" id="btnTestOpenAI">Testar OpenAI</button>
+        <div id="openai-test" class="mt"></div>
+        <h2 class="mt-lg">Testar qualidade da IA</h2>
+        <p class="muted">Roda uma tiragem de Tarot real e pede a interpretação à IA (sem custo).</p>
+        <button class="btn mt" id="btnTestIA">Testar IA agora</button>
+        <div id="ia-test" class="mt"></div>
+      </section>
+
+      <!-- Grátis × Pagantes -->
+      <section class="tabview card hidden" id="view-gratis">
+        <h2>Grátis × Pagantes</h2>
+        <p class="muted mt">Quem fez a consulta grátis e quem pagou depois (PDF ou nova consulta).</p>
+        <div id="gratis-resumo" class="mt" style="display:flex;flex-wrap:wrap;gap:12px"></div>
+        <div class="mt" style="display:flex;gap:8px;flex-wrap:wrap">
+          <button class="btn ghost" data-filtro="todos" style="width:auto;padding:8px 14px">Todos</button>
+          <button class="btn ghost" data-filtro="pagou" style="width:auto;padding:8px 14px">Pagaram</button>
+          <button class="btn ghost" data-filtro="naopagou" style="width:auto;padding:8px 14px">Só grátis</button>
+        </div>
+        <div class="panel mt" id="gratis-box"><div class="spinner"></div></div>
+      </section>
+
+      <!-- Consultas -->
+      <section class="tabview card hidden" id="view-consultas">
+        <h2>Todas as consultas</h2>
+        <div id="consultas-stats" class="mt" style="display:flex;flex-wrap:wrap;gap:10px"></div>
+        <div class="panel mt" id="consultas-box"><div class="spinner"></div></div>
+      </section>
+
+      <!-- Financeiro -->
+      <section class="tabview card hidden" id="view-financeiro">
+        <h2>Financeiro</h2>
+        <div id="fin-box" class="mt"><div class="spinner"></div></div>
+      </section>
+
+      <!-- Usuários -->
+      <section class="tabview card hidden" id="view-usuarios">
+        <h2>Usuários</h2>
+        <div class="panel mt" id="usuarios-box"><div class="spinner"></div></div>
+      </section>
+
+      <!-- Configurações -->
+      <section class="tabview card hidden" id="view-config">
+        <h2>Valor da consulta</h2>
+        <p class="muted mt">Defina o valor cobrado dos clientes comuns.</p>
+        <div id="config-alert" class="mt"></div>
+        <div class="field mt"><label>Valor em reais (ex.: 39.99)</label><input id="cfg-price" type="number" step="0.01" min="0" /></div>
+        <button class="btn" id="btnSavePrice">Salvar valor</button>
+      </section>
+    </div>
+  </div>
+
+  <script>
+    const TOKEN_KEY = 'oraculo_token';
+    const USER_KEY = 'oraculo_user';
+    const $ = (s) => document.querySelector(s);
+    const token = () => localStorage.getItem(TOKEN_KEY);
+
+    async function api(path, opts = {}) {
+      const headers = { 'Content-Type': 'application/json' };
+      if (token()) headers.Authorization = 'Bearer ' + token();
+      const res = await fetch(path, { ...opts, headers, body: opts.body ? JSON.stringify(opts.body) : undefined });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || 'Erro.');
+      return data;
+    }
+
+    function gate(msg) {
+      $('#dash').classList.add('hidden');
+      $('#gate').classList.remove('hidden');
+      if (msg) $('#gate-msg').textContent = msg;
+    }
+
+    $('#btnSair').addEventListener('click', () => {
+      localStorage.removeItem(TOKEN_KEY); localStorage.removeItem(USER_KEY);
+      location.href = '/';
+    });
+
+    // Abas
+    document.querySelectorAll('.tab').forEach((t) => {
+      t.addEventListener('click', () => {
+        document.querySelectorAll('.tab').forEach((x) => x.classList.remove('active'));
+        t.classList.add('active');
+        document.querySelectorAll('.tabview').forEach((v) => v.classList.add('hidden'));
+        $('#view-' + t.dataset.tab).classList.remove('hidden');
+      });
+    });
+
+    function pill(status) {
+      return `<span class="status-pill s-${status}">${status}</span>`;
+    }
+    function esc(s) { return (s || '').replace(/[&<>]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c])); }
+
+    async function carregarIA() {
+      try {
+        const s = await api('/api/admin/openai-status');
+        $('#ia-status').innerHTML = s.configured
+          ? `<div class="alert ok"><span class="ok-dot">●</span> ${s.message} (modelo: ${s.model})</div>`
+          : `<div class="alert err"><span class="err-dot">●</span> ${s.message}</div>`;
+      } catch (e) { $('#ia-status').innerHTML = `<div class="alert err">${e.message}</div>`; }
+    }
+
+    $('#btnTestOpenAI').addEventListener('click', async () => {
+      $('#openai-test').innerHTML = '<div class="spinner"></div>';
+      try {
+        const r = await api('/api/admin/openai-test', { method: 'POST' });
+        $('#openai-test').innerHTML = `<div class="alert ok"><span class="ok-dot">●</span> Conexão OK. Resposta: ${esc(r.resposta)}</div>`;
+      } catch (e) {
+        $('#openai-test').innerHTML = `<div class="alert err"><span class="err-dot">●</span> ${e.message}</div>`;
+      }
+    });
+
+    $('#btnTestIA').addEventListener('click', async () => {
+      $('#ia-test').innerHTML = '<div class="spinner"></div>';
+      try {
+        const r = await api('/api/admin/test-ia', { method: 'POST' });
+        const cartas = r.cartas.map((c) => `${c.posicao}: ${c.carta}${c.invertida ? ' (invertida)' : ''}`).join(' · ');
+        $('#ia-test').innerHTML = `<p class="muted">${cartas}</p><div class="reading mt">${esc(r.resultado)}</div>`;
+      } catch (e) { $('#ia-test').innerHTML = `<div class="alert err">${e.message}</div>`; }
+    });
+
+    let _gratis = null;
+    let _filtro = 'todos';
+    function cartao(titulo, valor, cor) {
+      return `<div class="card" style="flex:1;min-width:130px;text-align:center;padding:14px">
+        <div class="muted" style="font-size:0.72rem;letter-spacing:0.05em">${titulo}</div>
+        <div style="font-family:'Cinzel',serif;font-size:1.5rem;color:${cor || 'var(--gold-2)'}">${valor}</div></div>`;
+    }
+    function linkWhats(n) {
+      const d = String(n || '').replace(/\D/g, '');
+      if (!d) return '<span class="muted">—</span>';
+      const num = d.length <= 11 ? '55' + d : d;
+      return `<a href="https://wa.me/${num}" target="_blank" rel="noopener" style="color:var(--gold-2)">${esc(n)}</a>`;
+    }
+    function desenharGratis() {
+      const d = _gratis; if (!d) return;
+      const r = d.resumo;
+      $('#gratis-resumo').innerHTML =
+        cartao('CONSULTAS GRÁTIS', r.totalGratis, 'var(--cream)') +
+        cartao('PAGARAM DEPOIS', r.pagaram) +
+        cartao('CONVERSÃO', r.conversao + '%') +
+        cartao('RECEITA DESSES CLIENTES', r.receitaBrl);
+      const tipos = { mapa_astral: 'Mapa Astral', astrologia_vedica: 'Védica', tarot: 'Tarot', buzios: 'Búzios' };
+      const lista = d.lista.filter((x) => _filtro === 'todos' || (_filtro === 'pagou' ? x.pagou : !x.pagou));
+      if (!lista.length) { $('#gratis-box').innerHTML = '<p class="muted">Ninguém nesta lista ainda.</p>'; return; }
+      const rows = lista.map((x) => {
+        const status = x.pagou
+          ? `<span class="status-pill s-pago">Pagou · ${esc(x.gastoBrl)}</span><br><span class="muted" style="font-size:0.75rem">${x.pagouPdf ? 'PDF' : ''}${x.pagouPdf && x.consultasPagasDepois ? ' + ' : ''}${x.consultasPagasDepois ? x.consultasPagasDepois + ' consulta(s) paga(s)' : ''}</span>`
+          : `<span class="status-pill s-pendente">Só grátis</span><br><button class="btn ghost" style="width:auto;padding:5px 10px;font-size:0.72rem;margin-top:6px" data-liberar="${x.id}" data-nome="${esc(x.nome)}">Liberar PDF</button>`;
+        return `<tr>
+          <td>${esc(x.nome)}<br><span class="muted" style="font-size:0.75rem">${esc(x.email)}</span></td>
+          <td>${linkWhats(x.whatsapp)}<br><span class="muted" style="font-size:0.75rem">${esc(x.cpf)}</span></td>
+          <td>${esc(tipos[x.tipo] || x.tipo)}${x.categoria ? '<br><span class="muted" style="font-size:0.75rem">' + esc(x.categoria) + '</span>' : ''}</td>
+          <td>${new Date(x.data + 'Z').toLocaleString('pt-BR')}</td>
+          <td>${status}</td>
+        </tr>`;
+      }).join('');
+      $('#gratis-box').innerHTML = `<table><thead><tr><th>Cliente</th><th>WhatsApp / CPF</th><th>Consulta</th><th>Data</th><th>Pagou?</th></tr></thead><tbody>${rows}</tbody></table>`;
+      document.querySelectorAll('[data-liberar]').forEach((b) => b.addEventListener('click', async () => {
+        if (!confirm('Liberar o PDF de ' + b.dataset.nome + ' sem cobrar? (use quando a pessoa já pagou)')) return;
+        try { await api('/api/admin/consultations/' + b.dataset.liberar + '/liberar-pdf', { method: 'POST' }); carregarGratis(); alert('PDF liberado! Peça para a cliente abrir a consulta em "Minhas consultas" e tocar em Baixar.'); }
+        catch (e) { alert(e.message); }
+      }));
+    }
+    async function carregarGratis() {
+      try { _gratis = await api('/api/admin/gratis'); desenharGratis(); }
+      catch (e) { $('#gratis-box').innerHTML = `<div class="alert err">${e.message}</div>`; }
+    }
+    document.querySelectorAll('[data-filtro]').forEach((b) => b.addEventListener('click', () => { _filtro = b.dataset.filtro; desenharGratis(); }));
+
+    async function carregarConsultas() {
+      try {
+        const d = await api('/api/admin/consultations');
+        let priceTxt = '—';
+        try { const s = await api('/api/admin/settings'); priceTxt = s.consultation_price_brl; } catch (e) {}
+        const pagas = d.consultas.filter((c) => c.payment_status === 'pago').length;
+        const gratis = d.consultas.filter((c) => c.payment_status === 'gratis_admin').length;
+        const gratisClientes = d.consultas.filter((c) => c.payment_status === 'gratis' || c.payment_status === 'pdf_pago').length;
+        const pdfs = d.consultas.filter((c) => c.pdf_path).length;
+        $('#consultas-stats').innerHTML = `
+          <span class="status-pill s-pago">Pagas: ${pagas}</span>
+          <span class="status-pill s-gratis_admin">Grátis admin: ${gratis}</span>
+          <span class="status-pill s-pendente">Grátis clientes: ${gratisClientes}</span>
+          <span class="status-pill s-pendente">PDFs gerados: ${pdfs}</span>
+          <span class="status-pill s-pendente">Valor atual: ${priceTxt}</span>`;
+        if (!d.consultas.length) { $('#consultas-box').innerHTML = '<p class="muted">Nenhuma consulta ainda.</p>'; return; }
+        const rows = d.consultas.map((c) => `
+          <tr>
+            <td>${esc(c.full_name)}<br><span class="muted" style="font-size:0.75rem">${esc(c.email)}</span></td>
+            <td>${new Date(c.created_at + 'Z').toLocaleString('pt-BR')}</td>
+            <td>${esc(c.type)}${c.category ? '<br><span class="muted" style="font-size:0.75rem">' + esc(c.category) + '</span>' : ''}</td>
+            <td class="resp-cell">${c.result_text ? `<details><summary>ver resposta</summary><div class="full">${esc(c.result_text)}</div></details>` : '<span class="muted">—</span>'}</td>
+            <td>${pill(c.payment_status)}</td>
+          </tr>`).join('');
+        $('#consultas-box').innerHTML = `<table><thead><tr><th>Cliente</th><th>Data</th><th>Pergunta</th><th>Resposta IA</th><th>Pagamento</th></tr></thead><tbody>${rows}</tbody></table>`;
+      } catch (e) { $('#consultas-box').innerHTML = `<div class="alert err">${e.message}</div>`; }
+    }
+
+    async function carregarFinanceiro() {
+      try {
+        const f = await api('/api/admin/financeiro');
+        $('#fin-box').innerHTML = `
+          <div style="display:flex;flex-wrap:wrap;gap:12px">
+            <div class="card" style="flex:1;min-width:150px;text-align:center">
+              <div class="muted" style="font-size:0.78rem;letter-spacing:0.05em">TOTAL FATURADO</div>
+              <div style="font-family:'Cinzel',serif;font-size:1.6rem;color:var(--gold-2)">${f.totalFaturadoBrl}</div>
+            </div>
+            <div class="card" style="flex:1;min-width:150px;text-align:center">
+              <div class="muted" style="font-size:0.78rem">CONSULTAS</div>
+              <div style="font-family:'Cinzel',serif;font-size:1.6rem;color:var(--cream)">${f.consultasRealizadas}</div>
+            </div>
+          </div>
+          <div style="display:flex;flex-wrap:wrap;gap:12px;margin-top:12px">
+            <span class="status-pill s-pago">Aprovados: ${f.pagamentosAprovados}</span>
+            <span class="status-pill s-pendente">Pendentes: ${f.pagamentosPendentes}</span>
+            <span class="status-pill s-gratis_admin">Clientes: ${f.clientes}</span>
+          </div>`;
+      } catch (e) { $('#fin-box').innerHTML = `<div class="alert err">${e.message}</div>`; }
+    }
+
+    async function carregarUsuarios() {
+      try {
+        const d = await api('/api/admin/users');
+        const rows = d.usuarios.map((u) => `
+          <tr><td>${esc(u.full_name)}</td><td>${esc(u.email)}<br>${linkWhats(u.phone)}</td><td>${esc(u.role)}</td><td>${esc(u.status)}</td>
+          <td>${new Date(u.created_at + 'Z').toLocaleDateString('pt-BR')}</td>
+          <td style="text-align:center">${u.role === 'superadmin' ? '—' : (u.credits || 0)}</td>
+          <td>${u.role === 'superadmin' ? '<span class="muted">—</span>' : `<button class="btn ghost" style="width:auto;padding:6px 10px;font-size:0.75rem" data-reset="${u.id}" data-nome="${esc(u.full_name)}">Redefinir senha</button>
+            <button class="btn ghost" style="width:auto;padding:6px 10px;font-size:0.75rem;margin-top:4px" data-credito="${u.id}" data-nome="${esc(u.full_name)}">+1 consulta</button>`}</td></tr>`).join('');
+        $('#usuarios-box').innerHTML = `<div id="reset-result"></div><table><thead><tr><th>Nome</th><th>E-mail / WhatsApp</th><th>Papel</th><th>Status</th><th>Desde</th><th>Consultas<br>guardadas</th><th></th></tr></thead><tbody>${rows}</tbody></table>`;
+        document.querySelectorAll('[data-reset]').forEach((b) => b.addEventListener('click', () => redefinirSenha(b.dataset.reset, b.dataset.nome)));
+        document.querySelectorAll('[data-credito]').forEach((b) => b.addEventListener('click', async () => {
+          if (!confirm('Dar +1 consulta para ' + b.dataset.nome + '?')) return;
+          try { await api('/api/admin/users/' + b.dataset.credito + '/credito', { method: 'POST' }); carregarUsuarios(); }
+          catch (e) { alert(e.message); }
+        }));
+      } catch (e) { $('#usuarios-box').innerHTML = `<div class="alert err">${e.message}</div>`; }
+    }
+
+    async function redefinirSenha(id, nome) {
+      if (!confirm('Gerar uma senha provisória para ' + nome + '? A senha atual dela deixa de funcionar.')) return;
+      try {
+        const r = await api('/api/admin/users/' + id + '/reset-password', { method: 'POST' });
+        const primeiro = (r.nome || '').split(' ')[0];
+        const msg = `Olá, ${primeiro}! Aqui é do Oráculo da Alma ✨ Sua nova senha de acesso é: ${r.senha}\nEntre em https://oraculo-da-alma-f8fh.onrender.com com o e-mail ${r.email}.`;
+        const d = String(r.whatsapp || '').replace(/\D/g, '');
+        const num = d ? (d.length <= 11 ? '55' + d : d) : '';
+        $('#reset-result').innerHTML = `<div class="alert ok" style="margin-bottom:12px">
+          Nova senha de <b>${esc(r.nome)}</b>: <b style="font-size:1.2rem;letter-spacing:2px">${esc(r.senha)}</b><br>
+          ${num ? `<a class="btn" style="margin-top:10px" target="_blank" rel="noopener" href="https://wa.me/${num}?text=${encodeURIComponent(msg)}">Enviar pelo WhatsApp</a>`
+                : '<span class="muted">Este cliente não tem WhatsApp cadastrado — copie a senha e envie para ele.</span>'}
+        </div>`;
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      } catch (e) { alert(e.message); }
+    }
+
+    async function carregarConfig() {
+      try {
+        const s = await api('/api/admin/settings');
+        $('#cfg-price').value = (s.consultation_price_cents / 100).toFixed(2);
+      } catch (e) { $('#config-alert').innerHTML = `<div class="alert err">${e.message}</div>`; }
+    }
+
+    $('#btnSavePrice').addEventListener('click', async () => {
+      $('#config-alert').innerHTML = '';
+      const reais = parseFloat($('#cfg-price').value);
+      if (!Number.isFinite(reais) || reais < 0) { $('#config-alert').innerHTML = '<div class="alert err">Valor inválido.</div>'; return; }
+      try {
+        const r = await api('/api/admin/settings', { method: 'PUT', body: { consultation_price_cents: Math.round(reais * 100) } });
+        $('#config-alert').innerHTML = `<div class="alert ok">Salvo: ${r.consultation_price_brl}</div>`;
+      } catch (e) { $('#config-alert').innerHTML = `<div class="alert err">${e.message}</div>`; }
+    });
+
+    // Starfield (reutiliza o do app)
+    (function starfield(){
+      const c=$('#starfield'),x=c.getContext('2d');let st=[];const red=matchMedia('(prefers-reduced-motion: reduce)').matches;
+      function rs(){c.width=innerWidth;c.height=innerHeight;const n=Math.min(140,(c.width*c.height)/10000|0);st=Array.from({length:n},()=>({x:Math.random()*c.width,y:Math.random()*c.height,r:Math.random()*1.2+0.2,a:Math.random()*0.6+0.2,tw:Math.random()*0.02+0.005,d:Math.random()>.5?1:-1}));}
+      function dr(){x.clearRect(0,0,c.width,c.height);for(const s of st){if(!red){s.a+=s.tw*s.d;if(s.a>0.85||s.a<0.15)s.d*=-1;}x.beginPath();x.arc(s.x,s.y,s.r,0,7);x.fillStyle=`rgba(224,196,120,${s.a})`;x.fill();}if(!red)requestAnimationFrame(dr);}
+      rs();addEventListener('resize',rs);dr();
+    })();
+
+    // Início: valida sessão e papel
+    (async () => {
+      if (!token()) { location.href = '/admin/login'; return; }
+      try {
+        const me = await api('/api/auth/me');
+        const role = me.user.role;
+        if (role !== 'admin' && role !== 'superadmin') return gate('Esta conta não tem acesso administrativo.');
+        $('#gate').classList.add('hidden');
+        $('#dash').classList.remove('hidden');
+        carregarIA(); carregarGratis(); carregarConsultas(); carregarFinanceiro(); carregarUsuarios(); carregarConfig();
+      } catch (e) {
+        gate('Sessão inválida. Entre novamente.');
+      }
+    })();
+  </script>
+</body>
+</html>

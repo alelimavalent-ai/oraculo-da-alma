@@ -1,0 +1,317 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Oráculo da Alma — O universo fala com você</title>
+  <meta name="description" content="Consultas espirituais e autoconhecimento com astrologia real e interpretação por IA." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;600;700&family=Spectral:ital,wght@0,400;0,600;1,400&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/styles.css" />
+</head>
+<body>
+  <canvas id="starfield" aria-hidden="true"></canvas>
+
+  <!-- Emblema reutilizável (definição SVG) -->
+  <svg width="0" height="0" style="position:absolute" aria-hidden="true">
+    <defs>
+      <symbol id="emblem-glyph" viewBox="0 0 100 100">
+        <!-- lua crescente -->
+        <path d="M50 12 a20 20 0 1 0 14 34 a16 16 0 1 1 -14 -34 z" fill="#e0c478"/>
+        <!-- olho -->
+        <ellipse cx="50" cy="34" rx="9" ry="5.5" fill="none" stroke="#e0c478" stroke-width="1.6"/>
+        <circle cx="50" cy="34" r="2.4" fill="#e0c478"/>
+        <!-- raios -->
+        <g stroke="#c9a24b" stroke-width="1.2">
+          <line x1="50" y1="6" x2="50" y2="12"/>
+          <line x1="33" y1="14" x2="36" y2="19"/>
+          <line x1="67" y1="14" x2="64" y2="19"/>
+        </g>
+        <!-- figura em meditação (lótus) -->
+        <circle cx="50" cy="56" r="6" fill="none" stroke="#e0c478" stroke-width="1.6"/>
+        <path d="M50 62 q-14 4 -20 14 q14 2 20 -4 q6 6 20 4 q-6 -10 -20 -14 z" fill="none" stroke="#c9a24b" stroke-width="1.4"/>
+        <path d="M50 70 q-10 6 -16 14 M50 70 q10 6 16 14" fill="none" stroke="#c9a24b" stroke-width="1.4"/>
+        <!-- estrelas -->
+        <g fill="#e0c478">
+          <circle cx="24" cy="40" r="1"/><circle cx="76" cy="40" r="1"/>
+          <circle cx="20" cy="60" r="0.9"/><circle cx="80" cy="60" r="0.9"/>
+        </g>
+      </symbol>
+    </defs>
+  </svg>
+
+  <div class="shell">
+
+    <!-- TOPO (visível quando logado) -->
+    <div class="topbar hidden" id="topbar">
+      <div style="display:flex;align-items:center;gap:10px">
+        <span class="mini-emblem"><svg><use href="#emblem-glyph"/></svg></span>
+        <span class="brand-name">Oráculo da Alma</span>
+      </div>
+      <div style="display:flex;gap:14px;align-items:center">
+        <a href="/admin" class="linkish hidden" id="btnTopAdmin">Admin</a>
+        <button class="linkish" id="btnSair">Sair</button>
+      </div>
+    </div>
+
+    <!-- ===================== HOME ===================== -->
+    <section class="view" id="view-home">
+      <div class="hero card">
+        <div class="emblem"><svg><use href="#emblem-glyph"/></svg></div>
+        <div class="brand-name" style="font-size:0.85rem">Oráculo da Alma</div>
+        <h1>O universo fala<br>com você</h1>
+        <p class="slogan">Astrologia real, interpretada com alma.</p>
+        <div class="mt-lg" style="display:flex;flex-direction:column;gap:12px">
+          <button class="btn" data-go="view-login">Entrar como cliente</button>
+          <button class="btn ghost" data-go="view-admin-login">Entrar como administrador</button>
+          <button class="linkish center" data-go="view-register" style="margin-top:4px">Não tem conta? Criar conta</button>
+        </div>
+      </div>
+      <p class="footer-note">
+        Autoconhecimento, espiritualidade e entretenimento.<br>
+        Contato: <a href="mailto:oraculodaalma@gmail.com" class="contact-link">oraculodaalma@gmail.com</a>
+      </p>
+    </section>
+
+    <!-- ===================== CADASTRO ===================== -->
+    <section class="view hidden" id="view-register">
+      <div class="card">
+        <h2>Criar conta</h2>
+        <p class="muted mt" style="margin-bottom:18px">Seus dados de nascimento permitem calcular seu mapa com precisão.</p>
+        <div id="reg-alert"></div>
+        <div class="field"><label>Nome completo</label><input id="reg-full_name" autocomplete="name" /></div>
+        <div class="row">
+          <div class="field"><label>Data de nascimento</label><input id="reg-birth_date" type="date" /></div>
+          <div class="field"><label>Hora de nascimento</label><input id="reg-birth_time" type="time" /></div>
+        </div>
+        <div class="field"><label>Cidade de nascimento</label><input id="reg-birth_city" placeholder="Cidade, Estado" /></div>
+        <div class="field"><label>Nome da mãe</label><input id="reg-mother_name" /></div>
+        <div class="field"><label>E-mail</label><input id="reg-email" type="email" autocomplete="email" /></div>
+        <div class="field"><label>Telefone</label><input id="reg-phone" type="tel" autocomplete="tel" /></div>
+        <div class="field"><label>Senha</label><input id="reg-password" type="password" autocomplete="new-password" /></div>
+        <button class="btn mt" id="btnRegister">Criar minha conta</button>
+        <p class="center mt">Já tem conta? <button class="linkish" data-go="view-login">Entrar</button></p>
+      </div>
+    </section>
+
+    <!-- ===================== LOGIN ===================== -->
+    <section class="view hidden" id="view-login">
+      <div class="card">
+        <div class="emblem"><svg><use href="#emblem-glyph"/></svg></div>
+        <h2 class="center">Entrar</h2>
+        <div id="login-alert" class="mt"></div>
+        <div class="field mt"><label>E-mail</label><input id="login-email" type="email" autocomplete="email" autocapitalize="none" autocorrect="off" spellcheck="false" /></div>
+        <div class="field"><label>Senha</label><input id="login-password" type="password" autocomplete="current-password" autocapitalize="none" autocorrect="off" spellcheck="false" /></div>
+        <button class="btn" id="btnLogin">Entrar</button>
+        <p class="center mt"><button class="linkish" data-go="view-forgot">Esqueci minha senha</button></p>
+        <p class="center mt">Não tem conta? <button class="linkish" data-go="view-register">Criar conta</button></p>
+      </div>
+    </section>
+
+    <!-- ===================== LOGIN ADMIN ===================== -->
+    <section class="view hidden" id="view-admin-login">
+      <div class="card">
+        <div class="emblem"><svg><use href="#emblem-glyph"/></svg></div>
+        <h2 class="center">Acesso do administrador</h2>
+        <p class="muted center mt" style="font-size:0.85rem">Área restrita ao dono do sistema.</p>
+        <div id="adminlogin-alert" class="mt"></div>
+        <div class="field mt"><label>E-mail</label><input id="adminlogin-email" type="email" autocomplete="email" autocapitalize="none" autocorrect="off" spellcheck="false" /></div>
+        <div class="field"><label>Senha</label><input id="adminlogin-password" type="password" autocomplete="current-password" autocapitalize="none" autocorrect="off" spellcheck="false" /></div>
+        <button class="btn" id="btnAdminLogin">Entrar como administrador</button>
+        <p class="center mt"><button class="linkish" data-go="view-home">Voltar</button></p>
+      </div>
+    </section>
+
+    <!-- ===================== ESQUECI SENHA ===================== -->
+    <section class="view hidden" id="view-forgot">
+      <div class="card">
+        <h2>Recuperar senha</h2>
+        <p class="muted mt" style="margin-bottom:14px">Informe seu e-mail para receber um código de redefinição.</p>
+        <div id="forgot-alert"></div>
+        <div class="field"><label>E-mail</label><input id="forgot-email" type="email" /></div>
+        <button class="btn" id="btnForgot">Enviar código</button>
+        <p class="center mt"><button class="linkish" data-go="view-reset">Já tenho um código</button></p>
+        <p class="center mt"><button class="linkish" data-go="view-login">Voltar ao login</button></p>
+      </div>
+    </section>
+
+    <!-- ===================== REDEFINIR SENHA ===================== -->
+    <section class="view hidden" id="view-reset">
+      <div class="card">
+        <h2>Definir nova senha</h2>
+        <div id="reset-alert" class="mt"></div>
+        <p class="muted mt" style="margin-bottom:6px">Digite o código de 6 números que enviamos para o seu e-mail.</p>
+        <div class="field mt"><label>E-mail</label><input id="reset-email" type="email" autocapitalize="none" autocorrect="off" /></div>
+        <div class="field"><label>Código recebido</label><input id="reset-token" inputmode="numeric" maxlength="6" placeholder="000000" autocomplete="one-time-code" /></div>
+        <div class="field"><label>Nova senha</label><input id="reset-password" type="password" /></div>
+        <button class="btn" id="btnReset">Redefinir senha</button>
+        <p class="center mt"><button class="linkish" data-go="view-login">Voltar ao login</button></p>
+      </div>
+    </section>
+
+    <!-- ===================== PAINEL ===================== -->
+    <section class="view hidden" id="view-app">
+      <div class="card">
+        <span class="badge done hidden" id="superAdminBadge" style="background:rgba(107,78,142,0.3);color:#d8c7ef;border:1px solid rgba(107,78,142,0.6);margin-bottom:10px;display:inline-block">SUPER ADMIN</span>
+        <h2 id="greeting">Bem-vindo(a)</h2>
+        <p class="muted" id="consultaSubtitle">Escolha sua consulta.</p>
+        <div class="grid mt-lg">
+          <button class="tile" data-consulta="mapa_astral">
+            <div class="ico">☉</div><h3>Mapa Astral</h3>
+            <p>Sol, Lua, Ascendente, casas e missão de vida.</p>
+          </button>
+          <button class="tile" data-consulta="astrologia_vedica">
+            <div class="ico">🕉️</div><h3>Astrologia Védica</h3>
+            <p>Nakshatra, Dashas e leitura cármica.</p>
+          </button>
+          <button class="tile" data-consulta="tarot">
+            <div class="ico">🃏</div><h3>Tarot</h3>
+            <p>Amor, trabalho, finanças e conselhos.</p>
+          </button>
+          <button class="tile" data-consulta="buzios">
+            <div class="ico">🐚</div><h3>Búzios</h3>
+            <p>Caminhos, proteção e prosperidade.</p>
+          </button>
+        </div>
+      </div>
+      <button class="btn ghost mt" data-go="view-history" id="btnHist">Minhas consultas</button>
+      <p class="footer-note">
+        Precisa de ajuda? <a href="mailto:oraculodaalma@gmail.com" class="contact-link">oraculodaalma@gmail.com</a>
+      </p>
+    </section>
+
+    <!-- ===================== DADOS DE NASCIMENTO ===================== -->
+    <section class="view hidden" id="view-birth">
+      <div class="card">
+        <h2 id="birth-title">Seu nascimento</h2>
+        <p class="muted mt" style="margin-bottom:16px">Confirme os dados. Buscamos as coordenadas da sua cidade para calcular o Ascendente.</p>
+        <div id="birth-alert"></div>
+        <div class="field"><label>Nome</label><input id="b-nome" /></div>
+        <div class="row">
+          <div class="field"><label>Data</label><input id="b-data" type="date" /></div>
+          <div class="field"><label>Hora</label><input id="b-hora" type="time" /></div>
+        </div>
+        <div class="field"><label>Cidade de nascimento</label><input id="b-cidade" placeholder="Ex.: Belo Horizonte" /></div>
+        <div class="field"><label>Fuso horário</label>
+          <select id="b-tz">
+            <option value="America/Sao_Paulo">Brasília / São Paulo (America/Sao_Paulo)</option>
+            <option value="America/Manaus">Manaus (America/Manaus)</option>
+            <option value="America/Cuiaba">Cuiabá (America/Cuiaba)</option>
+            <option value="America/Belem">Belém (America/Belem)</option>
+            <option value="America/Fortaleza">Fortaleza (America/Fortaleza)</option>
+            <option value="America/Recife">Recife (America/Recife)</option>
+            <option value="America/Rio_Branco">Rio Branco (America/Rio_Branco)</option>
+            <option value="America/Noronha">Fernando de Noronha (America/Noronha)</option>
+          </select>
+        </div>
+        <button class="btn mt" id="btnBirthNext">Continuar para o pagamento</button>
+        <button class="btn ghost mt" data-go="view-app">Voltar</button>
+      </div>
+    </section>
+
+    <!-- ===================== CATEGORIA (tarot/búzios) ===================== -->
+    <section class="view hidden" id="view-category">
+      <div class="card">
+        <h2 id="cat-title">Escolha o tema</h2>
+        <div id="cat-list" class="grid mt-lg"></div>
+        <button class="btn ghost mt-lg" data-go="view-app">Voltar</button>
+      </div>
+    </section>
+
+    <!-- ===================== CONSULTA GRÁTIS ===================== -->
+    <section class="view hidden" id="view-gratis">
+      <div class="card center">
+        <div class="price">Grátis ✨</div>
+        <h2 class="mt">Sua primeira consulta é por nossa conta</h2>
+        <p class="muted mt" style="margin-bottom:16px">Confirme seus dados para liberar. O CPF serve só para garantir uma consulta grátis por pessoa.</p>
+        <div id="gratis-alert" style="text-align:left"></div>
+        <div style="text-align:left">
+          <div class="field"><label>CPF</label><input id="g-cpf" inputmode="numeric" placeholder="Somente números" autocomplete="off" /></div>
+          <div class="field"><label>WhatsApp (com DDD)</label><input id="g-whats" inputmode="numeric" placeholder="Ex.: 21999998888" autocomplete="off" /></div>
+        </div>
+        <button class="btn" id="btnGratisConfirmar">Ver minha consulta grátis</button>
+        <button class="btn hidden" id="btnGratisPagar">Seguir com consulta paga</button>
+        <button class="btn ghost mt" data-go="view-app">Voltar</button>
+      </div>
+    </section>
+
+    <!-- ===================== PAGAMENTO ===================== -->
+    <section class="view hidden" id="view-payment">
+      <div class="card center">
+        <h2 id="pay-title">Pagamento via PIX</h2>
+        <div class="price mt" id="pay-price">…</div>
+        <p class="muted mt hidden" id="pay-nota" style="font-size:0.9rem"></p>
+
+        <!-- Passo 1: dados do cliente -->
+        <div id="pix-form" class="mt-lg" style="text-align:left">
+          <p class="muted center" style="margin-bottom:14px">Informe seus dados para gerar o PIX.</p>
+          <div id="pix-form-alert"></div>
+          <div class="field"><label>Nome completo</label><input id="pix-nome" /></div>
+          <div class="field"><label>CPF</label><input id="pix-cpf" inputmode="numeric" placeholder="Somente números" autocomplete="off" /></div>
+          <div class="field"><label>WhatsApp (com DDD)</label><input id="pix-whats" inputmode="numeric" placeholder="Ex.: 31999998888" autocomplete="off" /></div>
+          <button class="btn" id="btnGerarPix">Gerar PIX</button>
+        </div>
+
+        <!-- Passo 2: QR + copia e cola -->
+        <div id="pix-pay" class="hidden mt-lg">
+          <img id="pix-qr-img" alt="QR Code PIX" style="width:220px;height:220px;border-radius:12px;background:#fff;padding:8px;display:block;margin:0 auto" />
+          <p class="muted mt">Escaneie o QR Code ou copie o código abaixo:</p>
+          <textarea id="pix-copia" readonly style="width:100%;height:88px;margin-top:8px;background:rgba(8,15,36,0.7);border:1px solid rgba(201,162,75,0.3);border-radius:10px;color:var(--cream);padding:10px;font-size:0.8rem"></textarea>
+          <button class="btn ghost mt" id="btnCopiaCola">Copiar código PIX</button>
+          <p class="muted mt center" style="font-size:0.85rem">Status: <span id="pay-status" style="color:var(--gold-2)">aguardando pagamento…</span></p>
+          <div class="spinner"></div>
+        </div>
+
+        <div id="pay-alert" class="mt"></div>
+        <button class="btn ghost mt" id="btnCancelarPix" data-go="view-app">Cancelar</button>
+      </div>
+    </section>
+
+    <!-- ===================== RESULTADO ===================== -->
+    <section class="view hidden" id="view-result">
+      <div class="card">
+        <div class="reading-meta" id="result-meta"></div>
+        <div class="reading" id="result-text"></div>
+        <div class="disclaimer" id="result-disclaimer"></div>
+        <div class="hidden mt-lg" id="pdf-upsell" style="text-align:center;padding:14px;border:1px solid rgba(201,162,75,0.4);border-radius:12px">
+          <strong style="color:var(--gold-2)">Leve sua leitura completa com você</strong>
+          <p class="muted" style="margin:6px 0 0">Relatório premium em PDF, com o seu mapa visual e a interpretação completa, para guardar e compartilhar.</p>
+        </div>
+        <button class="btn mt" id="btnBaixarPdf">📄 Baixar relatório premium</button>
+        <div class="btn-row mt">
+          <button class="btn ghost" data-go="view-app">Nova consulta</button>
+          <button class="btn ghost" data-go="view-history">Histórico</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===================== HISTÓRICO ===================== -->
+    <section class="view hidden" id="view-history">
+      <div class="card">
+        <h2>Minhas consultas</h2>
+        <div id="hist-list" class="mt-lg"><div class="spinner"></div></div>
+        <button class="btn ghost mt-lg" data-go="view-app">Voltar ao painel</button>
+      </div>
+    </section>
+
+    <!-- ===================== CARREGANDO ===================== -->
+    <section class="view hidden" id="view-loading">
+      <div class="card center">
+        <div class="emblem"><svg><use href="#emblem-glyph"/></svg></div>
+        <h2 id="loading-text">Consultando o universo…</h2>
+        <div class="spinner"></div>
+        <p class="muted">Isto pode levar alguns instantes.</p>
+      </div>
+    </section>
+
+  </div>
+
+  <div id="loading-overlay" class="hidden" style="position:fixed;inset:0;z-index:9998;background:rgba(5,8,25,.85);display:flex;align-items:center;justify-content:center;flex-direction:column;gap:14px;text-align:center;padding:20px">
+    <div class="spinner"></div>
+    <p style="font-family:'Cinzel',serif;color:var(--gold-2)">Consultando o universo…</p>
+    <p class="muted" style="font-size:.9rem">Isso leva alguns segundos.</p>
+  </div>
+  <script src="/app.js"></script>
+</body>
+</html>
