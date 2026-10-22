@@ -9,7 +9,7 @@ const USER_KEY = 'oraculo_user';
 // Estado da consulta em andamento
 let fluxo = { type: null, category: null, consultationId: null, birth: null };
 // Consulta grátis (1ª consulta de cada pessoa)
-let gratis = { disponivel: false, precoBrl: '' };
+let gratis = { disponivel: false, precoBrl: '', creditos: 0, porPacote: 2 };
 
 // ---------- Util ----------
 const $ = (sel) => document.querySelector(sel);
@@ -284,15 +284,28 @@ async function verificarGratis() {
     const d = await api('/api/consultations/gratis/status');
     gratis.disponivel = !!d.disponivel;
     gratis.precoBrl = d.precoBrl || '';
+    gratis.creditos = d.creditos || 0;
+    gratis.porPacote = d.porPacote || 2;
   } catch (e) { gratis.disponivel = false; }
+  atualizarSubtitulo();
+}
+
+// Texto do topo: créditos disponíveis ou oferta do pacote.
+function atualizarSubtitulo() {
   const sub = document.getElementById('consultaSubtitle');
-  if (sub && gratis.disponivel) {
+  if (!sub) return;
+  if (gratis.disponivel) {
     sub.innerHTML = '✨ <strong style="color:var(--gold-2)">Sua primeira consulta é grátis!</strong> Escolha abaixo.';
+  } else if (gratis.creditos > 0) {
+    sub.innerHTML = `✨ Você tem <strong style="color:var(--gold-2)">${gratis.creditos} consulta${gratis.creditos > 1 ? 's' : ''} disponível${gratis.creditos > 1 ? 'is' : ''}</strong>. Escolha abaixo.`;
+  } else if (gratis.precoBrl) {
+    sub.innerHTML = `Por <strong style="color:var(--gold-2)">${gratis.precoBrl}</strong> você tem direito a <strong style="color:var(--gold-2)">${gratis.porPacote} consultas</strong> completas, com relatório em PDF.`;
   }
 }
 
 function textoBotaoNascimento() {
-  return gratis.disponivel ? 'Ver minha consulta grátis' : 'Continuar para o pagamento';
+  if (gratis.disponivel) return 'Ver minha consulta grátis';
+  return gratis.creditos > 0 ? 'Ver minha consulta' : 'Continuar para o pagamento';
 }
 
 function abrirTelaGratis() {
@@ -336,11 +349,8 @@ async function criarConsulta() {
     try { data = await api('/api/consultations', { method: 'POST', body }); }
     finally { carregando(false); }
 
-    if (data.gratis) {
-      gratis.disponivel = false;
-      const sub = document.getElementById('consultaSubtitle');
-      if (sub) sub.innerHTML = 'Escolha sua consulta. Cada leitura custa <strong class="preco-atual" style="color:var(--gold-2)">' + (data.precoPdfBrl || '') + '</strong>.';
-    }
+    if (data.gratis) gratis.disponivel = false;
+    if (data.credito) { gratis.creditos = data.creditos || 0; atualizarSubtitulo(); }
 
     // Admin: consulta grátis já gerada — mostra o resultado direto.
     if (data.free && data.resultado) {
@@ -387,6 +397,8 @@ function comprarPdf(consultationId, precoBrl) {
   }
   const t = document.getElementById('pay-title');
   if (t) t.textContent = 'Relatório premium em PDF';
+  const nota = document.getElementById('pay-nota');
+  if (nota) nota.classList.add('hidden');
 }
 
 // Prepara a tela de pagamento (passo 1: dados)
@@ -400,7 +412,12 @@ function iniciarTelaPix(payment) {
   alertBox('pay-alert', '', '');
   if (payment && payment.amount_brl) $('#pay-price').textContent = payment.amount_brl;
   const t = document.getElementById('pay-title');
-  if (t) t.textContent = 'Pagamento via PIX';
+  if (t) t.textContent = `Pacote com ${gratis.porPacote} consultas`;
+  const nota = document.getElementById('pay-nota');
+  if (nota) {
+    nota.classList.remove('hidden');
+    nota.textContent = `Esta consulta é liberada assim que o PIX cair. A outra${gratis.porPacote > 2 ? 's ficam' : ' fica'} guardada${gratis.porPacote > 2 ? 's' : ''} na sua conta para usar quando quiser — com relatório em PDF.`;
+  }
   if (pixPollTimer) { clearInterval(pixPollTimer); pixPollTimer = null; }
   show('view-payment');
 }
@@ -456,6 +473,10 @@ function iniciarPolling(consultationId) {
         $('#pay-status').textContent = 'aprovado ✓';
         await abrirResultado(consultationId);
         if (r.pdf) alert('Pagamento aprovado! Seu relatório premium em PDF está liberado. Toque em "Baixar relatório premium".');
+        else if (typeof r.creditos === 'number') {
+          gratis.creditos = r.creditos; atualizarSubtitulo();
+          if (r.creditos > 0) alert(`Pagamento aprovado! ✨ Sua consulta está pronta — e você ainda tem ${r.creditos} consulta${r.creditos > 1 ? 's' : ''} guardada${r.creditos > 1 ? 's' : ''} na sua conta.`);
+        }
       } else {
         $('#pay-status').textContent = 'aguardando pagamento…';
       }
@@ -617,7 +638,7 @@ async function carregarHistorico() {
           <div class="tipo">${tipos[c.type] || c.type}${c.category ? ' · ' + c.category : ''}</div>
           <div class="data">${new Date(c.created_at + 'Z').toLocaleString('pt-BR')}</div>
         </div>
-        <span class="badge ${done ? 'done' : 'wait'}">${!done ? 'Pendente' : (c.is_free ? (c.pdf_paid ? 'Grátis · PDF pago' : 'Grátis') : 'Liberada')}</span>`;
+        <span class="badge ${done ? 'done' : 'wait'}">${!done ? 'Pendente' : (c.is_free ? (c.pdf_paid ? 'Grátis · PDF pago' : 'Grátis') : (c.payment_status === 'credito' ? 'Liberada · pacote' : 'Liberada'))}</span>`;
       if (done) {
         row.style.cursor = 'pointer';
         row.addEventListener('click', async () => {

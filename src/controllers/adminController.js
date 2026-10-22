@@ -22,7 +22,7 @@ function listConsultations(req, res) {
 // Lista de usuários.
 function listUsers(req, res) {
   const rows = db.prepare(`
-    SELECT id, full_name, email, phone, role, status, created_at
+    SELECT id, full_name, email, phone, role, status, created_at, credits
     FROM users ORDER BY created_at DESC
   `).all();
   return res.json({ usuarios: rows });
@@ -109,7 +109,7 @@ function financeiro(req, res) {
 function gratisPagantes(req, res) {
   const brl = (c) => 'R$ ' + ((c || 0) / 100).toFixed(2).replace('.', ',');
   const rows = db.prepare(`
-    SELECT c.id, c.type, c.category, c.created_at, c.pdf_paid, c.user_id,
+    SELECT c.id, c.type, c.category, c.created_at, c.pdf_paid, c.payment_status, c.user_id,
            u.full_name, u.email, u.phone, u.cpf
     FROM consultations c
     JOIN users u ON u.id = c.user_id
@@ -176,7 +176,27 @@ function resetarSenhaUsuario(req, res) {
   return res.json({ senha, nome: u.full_name, email: u.email, whatsapp: u.phone });
 }
 
+// Libera o PDF de uma consulta grátis sem cobrança (ex.: cliente já pagou por fora / reembolso).
+function liberarPdf(req, res) {
+  const id = Number(req.params.id);
+  const c = db.prepare('SELECT id, is_free, pdf_paid FROM consultations WHERE id = ?').get(id);
+  if (!c) return res.status(404).json({ error: 'Consulta não encontrada.' });
+  db.prepare("UPDATE consultations SET pdf_paid = 1, payment_status = 'pdf_liberado_admin' WHERE id = ?").run(id);
+  return res.json({ ok: true });
+}
+
+// Dá +1 consulta (crédito) para o cliente — atendimento/cortesia.
+function darCredito(req, res) {
+  const id = Number(req.params.id);
+  const r = db.prepare('UPDATE users SET credits = COALESCE(credits, 0) + 1 WHERE id = ?').run(id);
+  if (r.changes !== 1) return res.status(404).json({ error: 'Usuário não encontrado.' });
+  const u = db.prepare('SELECT credits FROM users WHERE id = ?').get(id);
+  return res.json({ ok: true, creditos: u.credits });
+}
+
 module.exports = {
+  darCredito,
+  liberarPdf,
   resetarSenhaUsuario,
   gratisPagantes,
   listConsultations,

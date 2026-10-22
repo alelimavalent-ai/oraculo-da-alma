@@ -3,6 +3,7 @@ const { DateTime } = require('luxon');
 const db = require('../config/database');
 const asaas = require('../services/asaas');
 const { gerarConteudo } = require('../services/geracao');
+const { confirmarPagamentoPacote, creditosDoUsuario, consultasPorPacote } = require('../services/creditos');
 
 function precoCentavos() {
   const r = db.prepare("SELECT value FROM settings WHERE key = 'consultation_price_cents'").get();
@@ -36,11 +37,12 @@ async function gerarPix(req, res) {
     try {
       const st = await asaas.consultarStatus(payment.provider_txid);
       if (st.status === 'aprovado') {
-        db.prepare("UPDATE payments SET status = 'confirmed', confirmed_at = datetime('now') WHERE id = ?").run(payment.id);
         if (compraPdf) {
+          db.prepare("UPDATE payments SET status = 'confirmed', confirmed_at = datetime('now') WHERE id = ?").run(payment.id);
           db.prepare("UPDATE consultations SET pdf_paid = 1, payment_status = 'pdf_pago' WHERE id = ?").run(consultation.id);
           return res.json({ jaLiberada: true, pdf: true });
         }
+        confirmarPagamentoPacote(payment);
         db.prepare("UPDATE consultations SET status = 'paid', payment_status = 'pago' WHERE id = ?").run(consultation.id);
         const user = db.prepare('SELECT * FROM users WHERE id = ?').get(consultation.user_id);
         await gerarConteudo(db.prepare('SELECT * FROM consultations WHERE id = ?').get(consultation.id), user);
@@ -61,7 +63,7 @@ async function gerarPix(req, res) {
       cpf: soDigitos(cpf),
       whatsapp: soDigitos(whatsapp),
       valor,
-      descricao: compraPdf ? 'Relatório premium em PDF — Oráculo da Alma' : 'Consulta Oráculo da Alma',
+      descricao: compraPdf ? 'Relatório premium em PDF — Oráculo da Alma' : `Pacote ${consultasPorPacote()} consultas — Oráculo da Alma`,
       dueDate,
     });
 
@@ -112,13 +114,13 @@ async function statusPix(req, res) {
       return res.json({ status: 'aprovado', released: true, pdf: true });
     }
     if (st.status === 'aprovado') {
-      db.prepare("UPDATE payments SET status = 'confirmed', confirmed_at = datetime('now') WHERE id = ?").run(payment.id);
+      confirmarPagamentoPacote(payment);
       db.prepare("UPDATE consultations SET status = 'paid', payment_status = 'pago' WHERE id = ?").run(consultationId);
       const user = db.prepare('SELECT * FROM users WHERE id = ?').get(consultation.user_id);
       const fresh = db.prepare('SELECT * FROM consultations WHERE id = ?').get(consultationId);
       try {
         await gerarConteudo(fresh, user);
-        return res.json({ status: 'aprovado', released: true });
+        return res.json({ status: 'aprovado', released: true, creditos: creditosDoUsuario(consultation.user_id) });
       } catch (e) {
         return res.status(502).json({ status: 'aprovado', released: false, error: 'Pagamento aprovado, mas houve erro ao gerar a consulta: ' + e.message });
       }

@@ -9,6 +9,7 @@ const ia = require('../services/openai');
 const jwt = require('jsonwebtoken');
 const config = require('../config/env');
 const { soDigitos, cpfValido } = require('../utils/cpf');
+const { consultasPorPacote, creditosDoUsuario, usarCredito, devolverCredito } = require('../services/creditos');
 
 const TIPOS_VALIDOS = ['mapa_astral', 'astrologia_vedica', 'tarot', 'buzios'];
 
@@ -71,7 +72,8 @@ async function criarConsulta(req, res) {
   }
 
   // ---- CLIENTE: 1ª consulta grátis (1 por CPF). O PDF é pago à parte. ----
-  if (req.body && req.body.gratis) {
+  // A consulta grátis só existe se GRATIS_ATIVO=1 no Render (hoje: desligada).
+  if (req.body && req.body.gratis && process.env.GRATIS_ATIVO === '1') {
     const cpf = soDigitos(req.body.cpf);
     const whatsapp = soDigitos(req.body.whatsapp);
     if (!cpfValido(cpf)) return res.status(400).json({ error: 'CPF inválido. Confira os números.' });
@@ -110,7 +112,33 @@ async function criarConsulta(req, res) {
     }
   }
 
-  // ---- CLIENTE COMUM: precisa pagar PIX ----
+  // ---- CLIENTE COM CRÉDITO (consulta que sobrou do pacote): libera na hora ----
+  if (usarCredito(req.user.id)) {
+    const ins = db.prepare(`
+      INSERT INTO consultations (user_id, type, category, status, payment_status, input_json)
+      VALUES (?, ?, ?, 'paid', 'credito', ?)
+    `).run(req.user.id, type, category || null, JSON.stringify(inputData));
+    const consultationId = ins.lastInsertRowid;
+    const consultation = db.prepare('SELECT * FROM consultations WHERE id = ?').get(consultationId);
+    try {
+      const { texto, technical } = await gerarConteudo(consultation, user);
+      return res.status(201).json({
+        free: true,
+        credito: true,
+        creditos: creditosDoUsuario(req.user.id),
+        consultation: { id: consultationId, type, category: category || null, status: 'completed', payment_status: 'credito' },
+        resultado: texto,
+        dadosTecnicos: technical,
+        aviso: ia.AVISO,
+      });
+    } catch (err) {
+      devolverCredito(req.user.id);
+      db.prepare('DELETE FROM consultations WHERE id = ?').run(consultationId);
+      return res.status(502).json({ error: 'Erro ao gerar a consulta. Seu crédito foi mantido — tente novamente.' });
+    }
+  }
+
+  // ---- CLIENTE SEM CRÉDITO: paga o pacote por PIX ----
   const price = precoCentavos();
   const insert = db.prepare(`
     INSERT INTO consultations (user_id, type, category, status, payment_status, input_json)
@@ -125,6 +153,7 @@ async function criarConsulta(req, res) {
 
   return res.status(201).json({
     message: 'Consulta criada. Conclua o pagamento PIX para liberar.',
+    porPacote: consultasPorPacote(),
     consultation: { id: consultationId, type, category: category || null, status: 'pending', payment_status: 'pendente' },
     payment: {
       id: pay.lastInsertRowid,
@@ -365,7 +394,12 @@ async function arquivoPdfPorLink(req, res) {
 function statusGratis(req, res) {
   if (isAdmin(req.user.role)) return res.json({ disponivel: false, admin: true });
   const usada = db.prepare('SELECT id FROM consultations WHERE user_id = ? AND is_free = 1').get(req.user.id);
-  return res.json({ disponivel: !usada, precoBrl: brl(precoCentavos()) });
+  return res.json({
+    disponivel: process.env.GRATIS_ATIVO === '1' && !usada,
+    precoBrl: brl(precoCentavos()),
+    creditos: creditosDoUsuario(req.user.id),
+    porPacote: consultasPorPacote(),
+  });
 }
 
 module.exports = {

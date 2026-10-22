@@ -48,7 +48,7 @@ function ensureMaster({ forceReset = false } = {}) {
   console.log('==============================================');
   console.log('SUPER ADMIN PRONTO');
   console.log('Email: ' + email);
-  console.log('Senha: ' + password);
+  console.log('Senha: (definida no Render — ADMIN_PASSWORD)');
   console.log('Papel: ' + (saved ? saved.role : '—') + '  |  Login verificado: ' + (senhaOk ? 'OK' : 'FALHOU'));
   console.log('==============================================');
 

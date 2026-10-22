@@ -205,7 +205,7 @@
       const rows = lista.map((x) => {
         const status = x.pagou
           ? `<span class="status-pill s-pago">Pagou · ${esc(x.gastoBrl)}</span><br><span class="muted" style="font-size:0.75rem">${x.pagouPdf ? 'PDF' : ''}${x.pagouPdf && x.consultasPagasDepois ? ' + ' : ''}${x.consultasPagasDepois ? x.consultasPagasDepois + ' consulta(s) paga(s)' : ''}</span>`
-          : '<span class="status-pill s-pendente">Só grátis</span>';
+          : `<span class="status-pill s-pendente">Só grátis</span><br><button class="btn ghost" style="width:auto;padding:5px 10px;font-size:0.72rem;margin-top:6px" data-liberar="${x.id}" data-nome="${esc(x.nome)}">Liberar PDF</button>`;
         return `<tr>
           <td>${esc(x.nome)}<br><span class="muted" style="font-size:0.75rem">${esc(x.email)}</span></td>
           <td>${linkWhats(x.whatsapp)}<br><span class="muted" style="font-size:0.75rem">${esc(x.cpf)}</span></td>
@@ -215,6 +215,11 @@
         </tr>`;
       }).join('');
       $('#gratis-box').innerHTML = `<table><thead><tr><th>Cliente</th><th>WhatsApp / CPF</th><th>Consulta</th><th>Data</th><th>Pagou?</th></tr></thead><tbody>${rows}</tbody></table>`;
+      document.querySelectorAll('[data-liberar]').forEach((b) => b.addEventListener('click', async () => {
+        if (!confirm('Liberar o PDF de ' + b.dataset.nome + ' sem cobrar? (use quando a pessoa já pagou)')) return;
+        try { await api('/api/admin/consultations/' + b.dataset.liberar + '/liberar-pdf', { method: 'POST' }); carregarGratis(); alert('PDF liberado! Peça para a cliente abrir a consulta em "Minhas consultas" e tocar em Baixar.'); }
+        catch (e) { alert(e.message); }
+      }));
     }
     async function carregarGratis() {
       try { _gratis = await api('/api/admin/gratis'); desenharGratis(); }
@@ -278,9 +283,16 @@
         const rows = d.usuarios.map((u) => `
           <tr><td>${esc(u.full_name)}</td><td>${esc(u.email)}<br>${linkWhats(u.phone)}</td><td>${esc(u.role)}</td><td>${esc(u.status)}</td>
           <td>${new Date(u.created_at + 'Z').toLocaleDateString('pt-BR')}</td>
-          <td>${u.role === 'superadmin' ? '<span class="muted">—</span>' : `<button class="btn ghost" style="width:auto;padding:6px 10px;font-size:0.75rem" data-reset="${u.id}" data-nome="${esc(u.full_name)}">Redefinir senha</button>`}</td></tr>`).join('');
-        $('#usuarios-box').innerHTML = `<div id="reset-result"></div><table><thead><tr><th>Nome</th><th>E-mail / WhatsApp</th><th>Papel</th><th>Status</th><th>Desde</th><th></th></tr></thead><tbody>${rows}</tbody></table>`;
+          <td style="text-align:center">${u.role === 'superadmin' ? '—' : (u.credits || 0)}</td>
+          <td>${u.role === 'superadmin' ? '<span class="muted">—</span>' : `<button class="btn ghost" style="width:auto;padding:6px 10px;font-size:0.75rem" data-reset="${u.id}" data-nome="${esc(u.full_name)}">Redefinir senha</button>
+            <button class="btn ghost" style="width:auto;padding:6px 10px;font-size:0.75rem;margin-top:4px" data-credito="${u.id}" data-nome="${esc(u.full_name)}">+1 consulta</button>`}</td></tr>`).join('');
+        $('#usuarios-box').innerHTML = `<div id="reset-result"></div><table><thead><tr><th>Nome</th><th>E-mail / WhatsApp</th><th>Papel</th><th>Status</th><th>Desde</th><th>Consultas<br>guardadas</th><th></th></tr></thead><tbody>${rows}</tbody></table>`;
         document.querySelectorAll('[data-reset]').forEach((b) => b.addEventListener('click', () => redefinirSenha(b.dataset.reset, b.dataset.nome)));
+        document.querySelectorAll('[data-credito]').forEach((b) => b.addEventListener('click', async () => {
+          if (!confirm('Dar +1 consulta para ' + b.dataset.nome + '?')) return;
+          try { await api('/api/admin/users/' + b.dataset.credito + '/credito', { method: 'POST' }); carregarUsuarios(); }
+          catch (e) { alert(e.message); }
+        }));
       } catch (e) { $('#usuarios-box').innerHTML = `<div class="alert err">${e.message}</div>`; }
     }
 
